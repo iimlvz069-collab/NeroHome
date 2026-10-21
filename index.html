@@ -307,7 +307,7 @@ function statusOf(dueC,paidC){
 /* m: {price, readings:{id:{prev,curr}}}; apts: active apartments for that period.
    Consumption is always current reading minus previous reading; it can't be typed in. */
 function computeMonth(m,apts){
-  var res={ok:false,reason:null,rows:[],missing:[],negative:[],totalC:0,sumKwh:0,price:null};
+  var res={ok:false,reason:null,rows:[],missing:[],negative:[],totalC:0,sumKwh:0,price:null,readyN:0};
   var price=num(m.price);
   res.price=(price!==null&&price>=0)?price:null;
   var sum=0, complete=true;
@@ -323,13 +323,16 @@ function computeMonth(m,apts){
   res.sumKwh=round3(sum);
   if(!apts.length){ res.reason='no-apartments'; return res; }
   if(res.price===null){ res.reason='no-price'; return res; }
-  if(!complete){ res.reason='incomplete'; return res; }
+  /* An apartment's amount depends only on its own two readings and the price, so it is ready as soon as that apartment is complete.
+     res.ok (everything complete) is only needed for the all-building summary. */
   var pm=Math.round(res.price*10000), total=0;
   res.rows.forEach(function(r){
+    if(r.kwh===null) return;
     r.shareC=Math.round(Math.round(r.kwh*1000)*pm/100000);
-    total+=r.shareC;
+    total+=r.shareC; res.readyN++;
   });
   res.totalC=total;
+  if(!complete){ res.reason='incomplete'; return res; }
   res.ok=true;
   return res;
 }
@@ -380,8 +383,12 @@ function carryBefore(building,months,ym){
       typed[a.id]=(o!==null);
       arr[a.id]=(o===null)?(carry[a.id]||0):toCents(o);
     });
-    if(v.res.ok) v.res.rows.forEach(function(r){ carry[r.id]=arr[r.id]+r.shareC-paidCents(rec,r.id); });
-    else v.apts.forEach(function(a){ if(typed[a.id]) carry[a.id]=arr[a.id]; });
+    var rowOf={}; v.res.rows.forEach(function(r){ rowOf[r.id]=r; });
+    v.apts.forEach(function(a){
+      var r=rowOf[a.id];
+      if(r&&r.shareC!==null) carry[a.id]=arr[a.id]+r.shareC-paidCents(rec,a.id);
+      else if(typed[a.id]) carry[a.id]=arr[a.id];
+    });
   });
   return carry;
 }
@@ -394,7 +401,7 @@ function monthView(building,months,ym){
     v.arrAuto[a.id]=(o===null);
     v.arr[a.id]=(o===null)?(carry[a.id]||0):toCents(o);
   });
-  if(v.res.ok) v.res.rows.forEach(function(r){ v.due[r.id]=v.arr[r.id]+r.shareC-paidCents(rec,r.id); });
+  v.res.rows.forEach(function(r){ if(r.shareC!==null) v.due[r.id]=v.arr[r.id]+r.shareC-paidCents(rec,r.id); });
   return v;
 }
 function arrearsCents(building,months,aptId,ym){
@@ -1088,7 +1095,7 @@ function renderMonth(){
   '<p class="hint">استهلاك العمارة <span class="num" id="g-kwh">—</span> · مجموع المبالغ <span class="num" id="g-total">—</span></p>'+
   '<p class="hint" id="price-hint"'+(e.priceAuto&&priceVal!==''?'':' hidden')+'>السعر منقول من الفترة السابقة. عدّله متى تغيّر.</p>'+
   '<p class="status" id="mstatus" role="status"></p></section>'+
-  '<section class="plain" aria-labelledby="h-apts"><h3 class="h3" id="h-apts" style="margin-bottom:2px">الشقق</h3><p class="hint" style="margin:0 0 10px">اضغط على الشقة لكتابة قراءتها أو تسجيل الدفع.</p>'+
+  '<section class="plain" aria-labelledby="h-apts"><h3 class="h3" id="h-apts" style="margin-bottom:2px">الشقق</h3><p class="hint" style="margin:0 0 10px">اضغط على أي شقة واكتب قراءتها، ومبلغها بيظهر مباشرة بدون ما تنتظر باقي الشقق.</p>'+
   search+chips+
   (v.apts.length?monthFloors(v,rec)+'<p class="lead" id="f-none" hidden>لا توجد شقة بهذا الرقم أو الاسم.</p>':'<p class="lead">لا توجد شقق في هذه الفترة. أضف شقة من قسم الشقق.</p>')+'</section>'+
   '<section class="band"><h3 class="h3">ملخص الفترة للجميع</h3><p class="hint" style="margin-top:0">الخطوات: احفظ ملف PDF، ثم افتح واتساب وأرفق الملف بالمحادثة. رابط واتساب يجهز لك نص الرسالة فقط.</p>'+
@@ -1142,18 +1149,20 @@ function paintMonth(){
   var byId={}; res.rows.forEach(function(r){byId[r.id]=r;});
   var nameOf={}; v.apts.forEach(function(a){nameOf[a.id]=a.name;});
   var totalDue=0;
-  if(res.ok) v.apts.forEach(function(a){ if(v.due[a.id]>0) totalDue+=v.due[a.id]; });
+  v.apts.forEach(function(a){ if(v.due[a.id]>0) totalDue+=v.due[a.id]; });
   var ph=document.getElementById('price-hint'); if(ph) ph.hidden=!(v.eff.priceAuto&&v.eff.price!==null);
   document.getElementById('g-kwh').textContent=res.sumKwh>0?fmtNum(res.sumKwh)+' ك.و.س':'—';
-  document.getElementById('g-total').textContent=res.ok?fmtMoney(res.totalC)+' ₪':'—';
-  document.getElementById('g-due').textContent=res.ok?fmtMoney(totalDue)+' ₪':'—';
+  document.getElementById('g-total').textContent=res.readyN?fmtMoney(res.totalC)+' ₪':'—';
+  document.getElementById('g-due').textContent=res.readyN?fmtMoney(totalDue)+' ₪':'—';
   var doneN=res.rows.filter(function(r){return r.kwh!==null;}).length;
   document.getElementById('g-count').textContent=res.rows.length?doneN+' من '+res.rows.length:'—';
   var st=document.getElementById('mstatus'), msg='', kind='';
   if(res.reason==='no-price'){ msg='اكتب سعر الكيلوواط لتظهر المبالغ.'; kind='warn'; }
   else if(res.reason==='incomplete'){
-    var names=res.missing.map(function(id){return nameOf[id];}).concat(res.negative.map(function(id){return nameOf[id];}));
-    msg='لا يمكن حساب المبالغ بعد. ينقص أو يحتاج مراجعة: '+(names.length>4?names.slice(0,3).join('، ')+' و'+(names.length-3)+' أخرى':names.join('، '))+'.'; kind='warn';
+    var bad=res.negative.map(function(id){return nameOf[id];}), parts=[];
+    if(res.readyN) parts.push('جاهز '+res.readyN+' من '+res.rows.length+' شقة (المجاميع فوق للشقق الجاهزة فقط)');
+    if(bad.length) parts.push('راجع قراءة: '+(bad.length>4?bad.slice(0,3).join('، ')+' و'+(bad.length-3)+' أخرى':bad.join('، ')));
+    msg=parts.length?parts.join('. ')+'.':''; kind=bad.length?'warn':'';
   } else if(res.ok){ msg='الحساب جاهز.'; kind='ok'; }
   st.textContent=msg; st.hidden=!msg; if(kind) st.dataset.k=kind; else delete st.dataset.k;
   var items=main.querySelectorAll('.apt');
@@ -1173,7 +1182,7 @@ function paintMonth(){
     if(hasPhone){ wa.textContent='واتساب'; wa.removeAttribute('data-act'); wa.removeAttribute('data-id'); }
     else { wa.textContent='أضف رقم واتساب'; wa.dataset.act='phone-missing'; wa.dataset.id=id; wa.setAttribute('href','#'); wa.removeAttribute('aria-disabled'); }
     var pdfBtn=li.querySelector('[data-act="pdf"]');
-    if(res.ok){
+    if(row.shareC!==null){
       var arr=v.arr[id], due=v.due[id], s=statusOf(due,paidC);
       q('share').textContent=fmtMoney(row.shareC)+' ₪';
       q('due').textContent=fmtMoney(Math.max(0,due))+' ₪';
@@ -1191,16 +1200,18 @@ function paintMonth(){
     var sub=q('sub'), amt=q('amt'), av=q('av'), pill2=q('pill2'), tn=apt.tenant?apt.tenant+' · ':'';
     if(row.issue==='negative'){ sub.textContent=tn+'القراءة تحتاج مراجعة'; amt.textContent=''; pill.dataset.k='unpaid'; pill.textContent='راجع القراءة'; }
     else if(row.issue==='missing'){ sub.textContent=tn+(row.curr===null?(row.prev!==null?'السابقة '+fmtRead(row.prev):'اكتب القراءتين'):'اكتب القراءة السابقة'); amt.textContent=''; pill.dataset.k='todo'; pill.textContent='أدخل القراءة'; }
-    else { sub.textContent=tn+fmtNum(row.kwh)+' ك.و.س'; amt.textContent=res.ok?fmtMoney(Math.max(0,v.due[id]))+' ₪':''; }
+    else { sub.textContent=tn+fmtNum(row.kwh)+' ك.و.س'; amt.textContent=row.shareC!==null?fmtMoney(Math.max(0,v.due[id]))+' ₪':''; }
     av.dataset.k=pill.dataset.k; pill2.dataset.k=pill.dataset.k; pill2.textContent=pill.textContent;
   }
   var fsubs=main.querySelectorAll('[data-p="fl-sub"]');
   for(var fi=0;fi<fsubs.length;fi++){
     var fe=fsubs[fi], fn=Number(fe.dataset.floor), flist=v.apts.filter(function(a){return floorOf(a)===fn;});
     var ftxt=aptCountLabel(flist.length);
-    if(res.ok){
-      var fdue=0; flist.forEach(function(a){ if(v.due[a.id]>0) fdue+=v.due[a.id]; });
-      ftxt+=' · '+(fdue>0?'متبقي '+fmtMoney(fdue)+' ₪':'الكل مسدد');
+    var frdy=flist.filter(function(a){ return v.due[a.id]!==undefined; });
+    if(frdy.length){
+      var fdue=0; frdy.forEach(function(a){ if(v.due[a.id]>0) fdue+=v.due[a.id]; });
+      if(fdue>0) ftxt+=' · متبقي '+fmtMoney(fdue)+' ₪';
+      else if(frdy.length===flist.length) ftxt+=' · الكل مسدد';
     }
     fe.textContent=ftxt;
   }
@@ -1238,8 +1249,8 @@ function onInput(e){
 }
 function payFull(id){
   var ym=ui.ym, v=monthView(S.b,S.months,ym);
-  if(!v.res.ok){ toast('اكتب السعر والقراءات أولاً.'); return; }
   var m=ensureMonth(ym), r=v.res.rows.filter(function(x){return x.id===id;})[0];
+  if(!r||r.shareC===null){ toast('اكتب السعر وقراءتي هذه الشقة أولاً.'); return; }
   var val=(Math.max(0,v.arr[id]+r.shareC)/100).toFixed(2);
   m.paid[id]=val;
   var inp=document.getElementById('p-'+id); if(inp) inp.value=val;
@@ -1470,9 +1481,8 @@ function setBusy(on){ ui.busy=on; var b=main.querySelectorAll('[data-act="pdf"],
 function exportStatement(id){
   if(ui.busy) return;
   var ym=ui.ym, v=monthView(S.b,S.months,ym);
-  if(!v.res.ok) return;
   var row=v.res.rows.filter(function(r){return r.id===id;})[0], apt=v.apts.filter(function(a){return a.id===id;})[0];
-  if(!row||!apt) return;
+  if(!row||!apt||row.shareC===null) return;
   var d={building:S.b.name,monthLabel:ymLabel(ym),rangeLabel:ymRange(ym),apt:apt,row:row,price:v.res.price,
     arrC:v.arr[id],paidC:paidCents(S.months[ym],id),issued:new Date().toLocaleDateString('en-CA')};
   setBusy(true); toast('جارٍ تجهيز الملف…');
@@ -1617,7 +1627,7 @@ function renderHistory(){
   var mHtml=keys.map(function(k){
     var v=monthView(S.b,S.months,k), collected=0;
     v.apts.forEach(function(a){collected+=paidCents(S.months[k],a.id);});
-    var sub=v.res.ok?'المجموع '+fmtMoney(v.res.totalC)+' ₪ · المدفوع '+fmtMoney(collected)+' ₪':'غير مكتمل';
+    var sub=v.res.ok?'المجموع '+fmtMoney(v.res.totalC)+' ₪ · المدفوع '+fmtMoney(collected)+' ₪':(v.res.readyN?'جاهز '+v.res.readyN+' من '+v.res.rows.length+' شقة':'غير مكتمل');
     return '<li class="row"><div><div class="apt-name">'+esc(ymLabel(k))+'</div><div class="sub">'+sub+'</div></div><button class="btn" data-act="open-month" data-ym="'+k+'">فتح</button></li>';
   }).join('');
   main.innerHTML=
