@@ -182,6 +182,11 @@ main{display:block;outline:0}
 .badge[data-s="offline"]::before{background:var(--bad)}
 body.nonav{padding-block:0 32px}
 body.nonav .bnav{display:none}
+body.role-meter .tab[data-tab="apts"]{display:none}
+body.role-meter .tabs{grid-template-columns:repeat(3,1fr)}
+body.role-meter [data-p="pedit"]{display:none}
+.acc-add{display:flex;gap:8px;align-items:flex-end;margin-top:12px}
+.acc-add .field{flex:1;margin:0}
 @media (max-width:359px){ .tiles{grid-template-columns:1fr 1fr} .tiles .tile:last-child{grid-column:1/-1} }
 @media (min-width:560px){ .sheet-wrap{align-items:center} .sheet{border-radius:28px;max-height:88vh} }
 @media (prefers-reduced-motion: reduce){*{transition:none!important;animation:none!important}}
@@ -494,7 +499,7 @@ function buildPdf(pages){
 var KEY='kahraba-v1';
 var FB=(typeof firebaseConfig!=='undefined'&&firebaseConfig&&firebaseConfig.apiKey&&firebaseConfig.projectId)?firebaseConfig:null;
 var SDK_BASE='https://www.gstatic.com/firebasejs/10.14.1/';
-var S={b:{name:'',cc:'970',perFloor:6,ground:0,sample:false,apartments:[]},months:{},ready:false,kind:FB?'cloud':'local',stage:'',slow:false,errCode:'',dl:null};
+var S={b:{name:'',cc:'970',perFloor:6,ground:0,sample:false,apartments:[]},months:{},ready:false,kind:FB?'cloud':'local',stage:'',slow:false,errCode:'',dl:null,role:'admin',acc:{meters:[]}};
 var ui={tab:'month',ym:ymNow(),edit:null,confirm:null,busy:false,collapsed:{},open:null,search:'',dirty:false,restore:null};
 var main=document.getElementById('main');
 
@@ -522,15 +527,17 @@ function toast(msg){
 /* ----- persistence ----- */
 var timers={}, patches={}, localTimer=null;
 /* Shared mode (Firebase). fb holds everything about the connection; fb.st tracks each live listener. */
-function freshSt(){ return {b:{got:false,cache:true,pend:false},a:{got:false,cache:true,pend:false},p:{got:false,cache:true,pend:false}}; }
+function freshSt(){ return {b:{got:false,cache:true,pend:false},a:{got:false,cache:true,pend:false},p:{got:false,cache:true,pend:false},x:{got:false,cache:true,pend:false}}; }
 var fb={auth:null,fs:null,user:null,gen:0,pend:0,unsubs:[],base:{},baseMeta:'',metaExists:false,monthIds:{},recent:{},
   st:freshSt(),timedOut:false,readyTimer:null,lastToast:0};
 function isCloud(){ return S.kind==='cloud'; }
+/* Roles (shared mode only): the owner/managers have full access; a "meter" account may only write readings, arrears and payments. Firestore rules enforce it; this just shapes the screen. */
+function isMeter(){ return S.kind==='cloud'&&S.role==='meter'; }
 function isOffline(){
   if(typeof navigator!=='undefined'&&navigator.onLine===false) return true;
-  var s=fb.st; return !!(s.b.cache||s.a.cache||s.p.cache);
+  var s=fb.st; return !!(s.b.cache||s.a.cache||s.p.cache||s.x.cache);
 }
-function syncPending(){ var s=fb.st; return fb.pend>0||s.b.pend||s.a.pend||s.p.pend; }
+function syncPending(){ var s=fb.st; return fb.pend>0||s.b.pend||s.a.pend||s.p.pend||s.x.pend; }
 function pendingCount(){ return Object.keys(timers).length+(localTimer?1:0)+((isCloud()&&syncPending())?1:0); }
 function paintBadge(){
   var b=document.getElementById('badge'); if(!b) return;
@@ -554,7 +561,10 @@ function paintBadge(){
 function onSaveError(e){
   console.warn('save failed',e);
   var c=e&&e.code;
-  if(isCloud()&&c==='permission-denied'){ denyAccess(); return; }
+  if(isCloud()&&c==='permission-denied'){
+    if(isMeter()){ toast('هذا التعديل غير مسموح لحسابك، ولم يُحفظ.'); return; }
+    denyAccess(); return;
+  }
   toast(c==='resource-exhausted'?'تجاوزت الحد اليومي المجاني في Firebase. جرّب غداً.':'تعذر الحفظ، جرّب مرة ثانية.');
 }
 function deepMerge(a,b){
@@ -582,6 +592,7 @@ function qBuilding(){ if(isCloud()) cloudSaveBuilding(); else localSave(); }
 function qMonth(ym,patch){
   if(!isCloud()){ localSave(); return; }
   if(S.stage!=='ready') return;
+  if(isMeter()&&Object.prototype.hasOwnProperty.call(patch,'price')){ delete patch.price; if(!Object.keys(patch).length) return; }
   patches[ym]=deepMerge(patches[ym]||{},patch);
   clearTimeout(timers[ym]);
   timers[ym]=setTimeout(function(){flushMonth(ym);},500);
@@ -625,7 +636,7 @@ function assignOrd(){
 }
 /* Every apartment is its own document, so editing one never touches the others. Only fields that changed are sent. */
 function cloudSaveBuilding(){
-  if(S.stage!=='ready') return;
+  if(S.stage!=='ready'||isMeter()) return;
   var db=fb.fs, batch=db.batch(), n=0, meta=metaDoc(), mj=JSON.stringify(meta);
   if(mj!==fb.baseMeta){ batch.set(db.doc('building/main'),meta,{merge:true}); fb.baseMeta=mj; n++; }
   assignOrd();
@@ -642,7 +653,7 @@ function cloudSaveBuilding(){
 }
 /* Replaces everything (new setup, restore from backup, clear). Chunked because a batch holds at most 500 writes. */
 function cloudPersistAll(){
-  if(S.stage!=='ready') return;
+  if(S.stage!=='ready'||isMeter()) return;
   var db=fb.fs, ops=[], now=Date.now();
   var meta=metaDoc(); ops.push(function(b){ b.set(db.doc('building/main'),meta); }); fb.baseMeta=JSON.stringify(meta);
   var cur={}, nb={};
@@ -750,7 +761,7 @@ function onAuth(user){
     stopSync(); fb.user=null; resetData(); S.stage='login'; renderAll();
   }
 }
-function resetData(){ S.b={name:'',cc:'970',perFloor:6,ground:0,sample:false,apartments:[]}; S.months={}; S.ready=false; S.slow=false; }
+function resetData(){ S.b={name:'',cc:'970',perFloor:6,ground:0,sample:false,apartments:[]}; S.months={}; S.ready=false; S.slow=false; S.role='admin'; S.acc={meters:[]}; }
 function stopSync(){
   fb.gen++;
   fb.unsubs.forEach(function(u){ try{u();}catch(e){} }); fb.unsubs=[];
@@ -770,6 +781,7 @@ function startSync(){
   fb.unsubs.push(db.doc('building/main').onSnapshot(opt,on(function(s){ afterSnap(onBuildingSnap(s),s); }),fail));
   fb.unsubs.push(db.collection('apartments').onSnapshot(opt,on(function(s){ afterSnap(onAptsSnap(s),s); }),fail));
   fb.unsubs.push(db.collection('periods').onSnapshot(opt,on(function(s){ afterSnap(onPeriodsSnap(s),s); }),fail));
+  fb.unsubs.push(db.doc('access/main').onSnapshot(opt,on(function(s){ afterSnap(onAccessSnap(s),s); }),fail));
 }
 function denyAccess(){
   stopSync(); resetData(); S.stage='denied'; renderAll();
@@ -782,6 +794,16 @@ function onSyncErr(e){
 function setSt(k,s){ var o=fb.st[k]; o.got=true; o.cache=!!(s.metadata&&s.metadata.fromCache); o.pend=!!(s.metadata&&s.metadata.hasPendingWrites); }
 function isFresh(key){ return Date.now()-(fb.recent[key]||0)<10000; }
 
+/* access/main = {meters:[emails]}. Anyone allowed in who is not listed there is an admin (the owner / managers named in the Firestore rules). */
+function onAccessSnap(s){
+  setSt('x',s);
+  var d=s.exists?(s.data()||{}):{}, raw=Array.isArray(d.meters)?d.meters:[], ms=[];
+  raw.forEach(function(e){ e=String(e==null?'':e).trim().toLowerCase(); if(e&&ms.indexOf(e)<0) ms.push(e); });
+  var me=String(fb.user&&fb.user.email||'').toLowerCase(), role=(me&&ms.indexOf(me)>=0)?'meter':'admin';
+  var changed=role!==S.role||JSON.stringify(ms)!==JSON.stringify(S.acc.meters);
+  S.role=role; S.acc={meters:ms};
+  return {struct:changed,months:[]};
+}
 function onBuildingSnap(s){
   setSt('b',s);
   var d=s.exists?(s.data()||{}):{}; fb.metaExists=!!s.exists;
@@ -825,8 +847,8 @@ function onPeriodsSnap(qs){
 }
 function maybeReady(){
   if(S.stage!=='sync') return;
-  var s=fb.st; if(!(s.b.got&&s.a.got&&s.p.got)) return;
-  var fresh=!(s.b.cache||s.a.cache||s.p.cache);
+  var s=fb.st; if(!(s.b.got&&s.a.got&&s.p.got&&s.x.got)) return;
+  var fresh=!(s.b.cache||s.a.cache||s.p.cache||s.x.cache);
   var hasData=fb.metaExists||S.b.apartments.length>0||Object.keys(S.months).length>0;
   var off=(typeof navigator!=='undefined'&&navigator.onLine===false);
   if(fresh||((off||fb.timedOut)&&hasData)){
@@ -968,20 +990,65 @@ function makeSample(){
 /* ----- header / tabs ----- */
 function renderHeader(){
   document.getElementById('bname').textContent=S.b.name||'كهربا العمارة';
+  document.body.classList.toggle('role-meter',isMeter());
   var tabs=document.querySelectorAll('.tab');
   for(var i=0;i<tabs.length;i++) tabs[i].setAttribute('aria-selected',tabs[i].dataset.tab===ui.tab?'true':'false');
   paintBadge();
 }
 function renderAll(){
+  if(isMeter()&&ui.tab==='apts') ui.tab='month';
   closeApt(); renderHeader();
   document.body.classList.toggle('nonav',!S.ready);
   if(!S.ready) return renderStage();
   var noApts=S.b.apartments.length===0;
-  if(noApts&&ui.tab!=='settings') return renderSetup();
+  if(noApts&&ui.tab!=='settings') return isMeter()?renderWaiting():renderSetup();
   if(ui.tab==='month') return renderMonth();
   if(ui.tab==='apts') return renderApts();
   if(ui.tab==='history') return renderHistory();
   return renderSettings();
+}
+
+/* ----- roles ----- */
+var METER_NO={'apt-add':1,'apt-edit':1,'apt-save':1,'apt-rm':1,'apt-rm-yes':1,'apt-restore':1,'renum':1,'renum-yes':1,'clear':1,'clear-yes':1,'restore':1,'restore-yes':1,'sample-clear':1,'setup-start':1,'setup-sample':1,'adopt-local':1,'phone-missing':1,'phone-edit':1,'acc-add':1,'acc-rm':1,'backup':1};
+function renderWaiting(){
+  main.innerHTML='<section class="band"><h2 class="h2">لا توجد شقق بعد</h2><p class="lead">لسا ما انضافت شقق للعمارة. المدير هو اللي بيضيفها، وأول ما تنضاف بتظهر عندك هون لوحدها.</p></section>';
+}
+function renderMeterSettings(){
+  main.innerHTML='<section class="band"><h2 class="h2">الإعدادات</h2></section>'+
+  '<section class="band"><h3 class="h3">الحساب</h3><p class="hint" style="margin:0 0 8px">مسجّل الدخول باسم <span class="num">'+esc(fb.user&&fb.user.email||'')+'</span></p>'+
+  '<p class="lead" style="margin-bottom:12px">صلاحية هذا الحساب: إدخال القراءات والمتأخرات والمدفوع فقط. الشقق والسكان وسعر الكيلوواط والإعدادات بيعدّلها المدير.</p>'+
+  '<div class="btns" style="margin-top:0"><button class="btn" data-act="signout">تسجيل الخروج</button></div></section>';
+}
+function accessBand(){
+  var ms=(S.acc&&S.acc.meters)||[];
+  var list=ms.length?'<ul class="rows">'+ms.map(function(m){
+    return '<li class="row"><div><div class="apt-name num" dir="ltr" style="text-align:right">'+esc(m)+'</div><div class="sub">قراءات ومتأخرات ومدفوع فقط</div></div><button class="btn" type="button" data-act="acc-rm" data-email="'+esc(m)+'">إزالة</button></li>';
+  }).join('')+'</ul>':'<p class="hint" style="margin:0 0 6px">لسا ما في حساب مخصص للقراءات.</p>';
+  return '<section class="band"><h3 class="h3">الصلاحيات</h3>'+
+  '<p class="lead" style="margin-bottom:10px">الحسابات اللي بتظهر تحت بتقدر تدخل القراءات والمتأخرات والمدفوع فقط، وما بتقدر تعدّل الشقق ولا السكان ولا السعر ولا الإعدادات. حساب المدير الكامل بيتحدد من قواعد Firebase.</p>'+
+  list+
+  '<div class="acc-add"><div class="field"><label for="acc-email">إيميل حساب القراءات</label><input class="in" id="acc-email" type="email" dir="ltr" autocomplete="off" inputmode="email" autocapitalize="none" spellcheck="false" placeholder="reader@gmail.com"></div><button class="btn primary" type="button" data-act="acc-add">إضافة</button></div>'+
+  '<p class="hint">لازم يكون الحساب منشأ أصلاً في Firebase (Authentication ثم Users). إزالة الإيميل من هون بتمنعه من الدخول نهائياً (بعد ما تنحط القواعد الجديدة).</p></section>';
+}
+function saveAccess(list){
+  S.acc={meters:list};
+  track(fb.fs.doc('access/main').set({meters:list},{merge:true}));
+  renderSettings();
+}
+function accAdd(){
+  if(!isCloud()||isMeter()||S.stage!=='ready') return;
+  var el=document.getElementById('acc-email'), em=(el?el.value:'').trim().toLowerCase();
+  if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(em)){ toast('اكتب الإيميل بشكل صحيح.'); return; }
+  if(em===String(fb.user&&fb.user.email||'').toLowerCase()){ toast('هذا إيميلك أنت، وحساب المدير ما بينضاف هون.'); return; }
+  var list=S.acc.meters.slice();
+  if(list.indexOf(em)>=0){ toast('هذا الإيميل مضاف من قبل.'); return; }
+  list.push(em); saveAccess(list); toast('انضاف. تأكد إنه منشأ في Firebase (Authentication).');
+}
+function accRemove(em){
+  if(!isCloud()||isMeter()||S.stage!=='ready') return;
+  var list=S.acc.meters.filter(function(x){ return x!==em; });
+  if(list.length===S.acc.meters.length) return;
+  saveAccess(list); toast('تمت الإزالة.');
 }
 
 /* ----- setup ----- */
@@ -1091,11 +1158,12 @@ function renderMonth(){
   '<section class="month-nav" aria-label="الفترة"><button class="nbtn" type="button" data-act="prev" aria-label="الفترة السابقة"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></button>'+
   '<div class="month-title"><div class="eyebrow">كشف كهرباء</div><h2 class="h2">'+esc(ymLabel(ym))+'</h2><div class="eyebrow">'+esc(ymRange(ym))+'</div></div>'+
   '<button class="nbtn" type="button" data-act="next" aria-label="الفترة التالية"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg></button></section>'+
-  (S.b.sample?'<div class="status" data-k="warn">هذه بيانات تجريبية للتعرف على التطبيق. <button class="btn quiet" type="button" data-act="sample-clear">امسحها وابدأ بعمارتك</button></div>':'')+
+  (isMeter()?'<p class="hint" style="margin:12px 0 10px">حسابك مخصص لإدخال القراءات والمتأخرات والمدفوع. سعر الكيلوواط والشقق بيعدّلهم المدير.</p>':'')+
+  (S.b.sample&&!isMeter()?'<div class="status" data-k="warn">هذه بيانات تجريبية للتعرف على التطبيق. <button class="btn quiet" type="button" data-act="sample-clear">امسحها وابدأ بعمارتك</button></div>':'')+
   '<section class="plain" aria-label="ملخص الفترة"><div class="tiles">'+
   '<div class="tile"><span class="lbl">المطلوب تحصيله</span><span class="num big" id="g-due">—</span></div>'+
   '<div class="tile"><span class="lbl">القراءات</span><span class="big" id="g-count">—</span></div>'+
-  '<label class="tile" for="f-price"><span class="lbl">سعر الكيلوواط</span><input class="tile-in" id="f-price" data-f="price" data-auto="'+(e.priceAuto&&priceVal!==''?1:0)+'" value="'+esc(priceVal)+'" inputmode="decimal" dir="ltr" autocomplete="off" placeholder="0.70"></label></div>'+
+  '<label class="tile" for="f-price"><span class="lbl">سعر الكيلوواط</span><input class="tile-in" id="f-price" data-f="price" data-auto="'+(e.priceAuto&&priceVal!==''?1:0)+'" value="'+esc(priceVal)+'" inputmode="decimal" dir="ltr" autocomplete="off" placeholder="0.70"'+(isMeter()?' readonly aria-readonly="true"':'')+'></label></div>'+
   '<p class="hint">استهلاك العمارة <span class="num" id="g-kwh">—</span> · مجموع المبالغ <span class="num" id="g-total">—</span></p>'+
   '<p class="hint" id="price-hint"'+(e.priceAuto&&priceVal!==''?'':' hidden')+'>السعر منقول من الفترة السابقة. عدّله متى تغيّر.</p>'+
   '<p class="status" id="mstatus" role="status"></p></section>'+
@@ -1128,8 +1196,8 @@ function openApt(id){
   if(!li) return;
   var w=li.querySelector('.sheet-wrap'); if(!w) return;
   w.hidden=false; ui.open=id; document.body.classList.add('sheet-open');
-  var curr=li.querySelector('[data-f="curr"]'), sh=li.querySelector('.sheet');
-  var target=(curr&&curr.value==='')?curr:sh;
+  var prevIn=li.querySelector('[data-f="prev"]'), curr=li.querySelector('[data-f="curr"]'), sh=li.querySelector('.sheet');
+  var target=(prevIn&&prevIn.value==='')?prevIn:(curr&&curr.value==='')?curr:sh;
   if(target&&target.focus) target.focus({preventScroll:true});
 }
 function closeApt(){
@@ -1161,7 +1229,7 @@ function paintMonth(){
   var doneN=res.rows.filter(function(r){return r.kwh!==null;}).length;
   document.getElementById('g-count').textContent=res.rows.length?doneN+' من '+res.rows.length:'—';
   var st=document.getElementById('mstatus'), msg='', kind='';
-  if(res.reason==='no-price'){ msg='اكتب سعر الكيلوواط لتظهر المبالغ.'; kind='warn'; }
+  if(res.reason==='no-price'){ msg=isMeter()?'سعر الكيلوواط لسا ما انكتب. المدير بيحدده وبعدها بتظهر المبالغ.':'اكتب سعر الكيلوواط لتظهر المبالغ.'; kind='warn'; }
   else if(res.reason==='incomplete'){
     var bad=res.negative.map(function(id){return nameOf[id];}), parts=[];
     if(res.readyN) parts.push('جاهز '+res.readyN+' من '+res.rows.length+' شقة (المجاميع فوق للشقق الجاهزة فقط)');
@@ -1184,6 +1252,7 @@ function paintMonth(){
     var hasPhone=!!waNumber(apt.phone,ccOf(apt));
     var pe=q('pedit'); if(pe) pe.hidden=!hasPhone;
     if(hasPhone){ wa.textContent='واتساب'; wa.removeAttribute('data-act'); wa.removeAttribute('data-id'); }
+    else if(isMeter()){ wa.textContent='لا يوجد رقم واتساب'; wa.removeAttribute('data-act'); wa.removeAttribute('data-id'); wa.removeAttribute('href'); wa.setAttribute('aria-disabled','true'); }
     else { wa.textContent='أضف رقم واتساب'; wa.dataset.act='phone-missing'; wa.dataset.id=id; wa.setAttribute('href','#'); wa.removeAttribute('aria-disabled'); }
     var pdfBtn=li.querySelector('[data-act="pdf"]');
     if(row.shareC!==null){
@@ -1241,6 +1310,7 @@ function onInput(e){
     return;
   }
   var f=t.dataset&&t.dataset.f; if(!f||ui.tab!=='month') return;
+  if(f==='price'&&isMeter()) return;
   var ym=ui.ym, m=ensureMonth(ym), id=t.dataset.id, patch={};
   if(f==='price'){ m.price=t.value; patch.price=t.value; t.dataset.auto=t.value.trim()===''?'1':'0'; }
   else if(f==='prev'||f==='curr'){
@@ -1639,12 +1709,12 @@ function xPeriodRows(k){
   return out;
 }
 var X_MONEY=function(c){ return (c===null||c===undefined)?null:Math.round(c)/100; };
-var X_HEAD=['الشقة','الطابق','الساكن','القراءة السابقة','القراءة الحالية','الاستهلاك (ك.و.س)','سعر الكيلوواط (₪)','مبلغ الفترة (₪)','المتأخرات السابقة (₪)','المدفوع (₪)','المتبقي (₪)','الحالة'];
+var X_HEAD=['الشقة','الطابق','الساكن','القراءة السابقة','القراءة الحالية','الاستهلاك (ك.و.س)','مبلغ الفترة (₪)','المتأخرات السابقة (₪)','المدفوع (₪)','المتبقي (₪)','الحالة'];
 function xAptCells(it,withPeriod,pLabel,pRange){
   var c=[];
   if(withPeriod){ c.push([pLabel,2],[pRange,2]); }
   c.push([it.apt.name,2],[floorLabel(it.floor),2],[it.apt.tenant||'',2],
-    [it.prev,4],[it.curr,4],[it.kwh,5],[it.price,6],[X_MONEY(it.shareC),3],[X_MONEY(it.arrC),3],[it.paidC>0||it.ready?X_MONEY(it.paidC):null,3],[X_MONEY(it.dueC),3],[it.status,2]);
+    [it.prev,4],[it.curr,4],[it.kwh,5],[X_MONEY(it.shareC),3],[X_MONEY(it.arrC),3],[it.paidC>0||it.ready?X_MONEY(it.paidC):null,3],[X_MONEY(it.dueC),3],[it.status,2]);
   return c;
 }
 function buildExcel(){
@@ -1653,8 +1723,11 @@ function buildExcel(){
   var cur=xPeriodRows(ym), tk=0, ts=0, ta=0, tp=0, td=0;
   cur.forEach(function(it){ if(it.ready){ tk+=it.kwh; ts+=it.shareC; ta+=it.arrC; tp+=it.paidC; if(it.dueC>0) td+=it.dueC; } });
   var curRows=cur.map(function(it){ return xAptCells(it,false); });
-  curRows.push([['المجموع (الشقق الجاهزة)',7],[null,10],[null,10],[null,10],[null,10],[Math.round(tk*100)/100,9],[null,10],[X_MONEY(ts),8],[X_MONEY(ta),8],[X_MONEY(tp),8],[X_MONEY(td),8],[null,10]]);
-  sheets.push({name:ymLabel(ym),header:X_HEAD.map(function(h){return [h,1];}),rows:curRows,widths:[16,16,22,14,14,16,16,16,18,14,14,18],filter:0});
+  curRows.push([['المجموع (الشقق الجاهزة)',7],[null,10],[null,10],[null,10],[null,10],[Math.round(tk*100)/100,9],[X_MONEY(ts),8],[X_MONEY(ta),8],[X_MONEY(tp),8],[X_MONEY(td),8],[null,10]]);
+  /* the price is the same for every apartment, so it is written once here (not in every row) */
+  var curPrice=cur.length?cur[0].price:null;
+  if(curPrice!==null&&curPrice!==undefined) curRows.push([['سعر الكيلوواط لكل الشقق (₪)',2],[curPrice,6]]);
+  sheets.push({name:ymLabel(ym),header:X_HEAD.map(function(h){return [h,1];}),rows:curRows,widths:[26,16,22,14,14,16,16,18,14,14,18],filter:0});
   /* 2. what each apartment owes today */
   var carry=carryBefore(S.b,S.months,'9999-12-2'), bal=[];
   groupByFloor(S.b.apartments).forEach(function(g){ g.apts.forEach(function(a){
@@ -1663,13 +1736,18 @@ function buildExcel(){
   }); });
   sheets.push({name:'الأرصدة',header:['الشقة','الطابق','الساكن','رقم واتساب','الرصيد (₪)','الحالة'].map(function(h){return [h,1];}),rows:bal,widths:[16,16,22,18,16,14],filter:bal.length+1});
   /* 3. every period, every apartment that has a reading or a payment */
-  var keys=Object.keys(S.months).filter(isValidYm).sort(), all=[];
+  var keys=Object.keys(S.months).filter(isValidYm).sort(), all=[], prices=[];
   keys.forEach(function(k){
+    var n0=all.length, pr=null;
     xPeriodRows(k).forEach(function(it){
+      pr=it.price;
       if(it.kwh!==null||it.paidC>0) all.push(xAptCells(it,true,ymLabel(k),ymRange(k)));
     });
+    if(all.length>n0&&pr!==null&&pr!==undefined) prices.push([[ymLabel(k),2],[ymRange(k),2],[pr,6]]);
   });
-  sheets.push({name:'كل الفترات',header:['الفترة','النطاق'].concat(X_HEAD).map(function(h){return [h,1];}),rows:all,widths:[28,22,16,16,22,14,14,16,16,16,18,14,14,18],filter:all.length+1});
+  sheets.push({name:'كل الفترات',header:['الفترة','النطاق'].concat(X_HEAD).map(function(h){return [h,1];}),rows:all,widths:[28,22,16,16,22,14,14,16,16,18,14,14,18],filter:all.length+1});
+  /* 4. the price per kWh of each period, once per period */
+  sheets.push({name:'أسعار الكيلوواط',header:['الفترة','النطاق','سعر الكيلوواط (₪)'].map(function(h){return [h,1];}),rows:prices,widths:[28,22,18],filter:0});
   return xWorkbook(sheets);
 }
 function exportExcel(){
@@ -1886,7 +1964,7 @@ function renderHistory(){
   }).join('');
   main.innerHTML=
   '<section class="band"><h2 class="h2">السجل</h2><p class="lead">كل الفترات التي أدخلت بياناتها، وما على كل شقة من رصيد.</p>'+
-  (S.dl?'<div class="btns"><button class="btn primary" type="button" data-act="xlsx">حفظ كل الشقق كملف Excel</button></div><p class="hint">الملف فيه ثلاث أوراق: الفترة المعروضة في الكشف مع المجاميع، أرصدة الشقق اليوم، وكل الفترات السابقة لكل شقة. الملف صورة عن البيانات لحظة الحفظ، فاحفظ نسخة جديدة متى بدك.</p>':'')+'</section>'+
+  (S.dl?'<div class="btns"><button class="btn primary" type="button" data-act="xlsx">حفظ كل الشقق كملف Excel</button></div><p class="hint">الملف فيه أربع أوراق: الفترة المعروضة في الكشف مع المجاميع، أرصدة الشقق اليوم، وكل الفترات السابقة لكل شقة، وسعر الكيلوواط لكل فترة (مرة وحدة، مش عند كل ساكن). الملف صورة عن البيانات لحظة الحفظ، فاحفظ نسخة جديدة متى بدك.</p>':'')+'</section>'+
   '<section class="band"><h3 class="h3">أرصدة الشقق</h3>'+(keys.length?balHtml+'<p class="hint" style="margin-top:10px">الرصيد يحسب من آخر فترة مكتملة لكل شقة.</p>':'<p class="lead">لا توجد فترات بعد. ابدأ من قسم الكشف.</p>')+'</section>'+
   '<section class="band"><h3 class="h3">الفترات</h3>'+(keys.length?'<ul class="rows">'+mHtml+'</ul>':'<p class="lead">لا توجد فترات بعد.</p>')+'</section>';
 }
@@ -1894,10 +1972,12 @@ function renderHistory(){
 /* ----- settings / backup ----- */
 function renderSettings(){
   var cloud=isCloud();
+  if(isMeter()) return renderMeterSettings();
   var rn=ui.restore?ui.restore.b.apartments.length:0, rm=ui.restore?Object.keys(ui.restore.months).length:0;
   main.innerHTML=
   '<section class="band"><h2 class="h2">الإعدادات</h2></section>'+
   (cloud?'<section class="band"><h3 class="h3">الحساب والمزامنة</h3><p class="lead" style="margin-bottom:8px">بيانات العمارة مشتركة: أي تعديل تعمله يظهر عند الطرف الآخر، وأي تعديل منه يظهر عندك.</p><p class="hint" style="margin:0 0 12px">مسجّل الدخول باسم <span class="num">'+esc(fb.user&&fb.user.email||'')+'</span></p><div class="btns" style="margin-top:0"><button class="btn" data-act="signout">تسجيل الخروج</button></div></section>':'')+
+  (cloud?accessBand():'')+
   '<section class="band"><h3 class="h3">العمارة</h3><div class="two">'+
   '<div class="field"><label for="st-name">اسم العمارة</label><input class="in" id="st-name" data-st="name" value="'+esc(S.b.name)+'" autocomplete="off"></div>'+
   '<div class="field"><label for="st-cc">مفتاح الدولة لأرقام واتساب</label><input class="in" id="st-cc" data-st="cc" value="'+esc(S.b.cc||'970')+'" inputmode="numeric" dir="ltr" autocomplete="off"><span class="hint">الأرقام التي تبدأ بصفر مثل 0599123456 تتحول إلى الصيغة الدولية بهذا المفتاح (970 أو 972). وإذا كتبت الرقم كاملاً مع المفتاح (+972…) يُستخدم كما هو.</span></div>'+
@@ -1942,6 +2022,7 @@ function pickBackup(){
 function onClick(e){
   var t=e.target.closest('[data-act]'); if(!t||t.disabled||t.getAttribute('aria-disabled')==='true') return;
   var act=t.dataset.act, id=t.dataset.id;
+  if(isMeter()&&METER_NO[act]){ e.preventDefault(); toast('حسابك مخصص لإدخال القراءات والمتأخرات والمدفوع فقط.'); return; }
   switch(act){
     case 'prev': ui.ym=ymShift(ui.ym,-1); ui.search=''; renderMonth(); break;
     case 'next': ui.ym=ymShift(ui.ym,1); ui.search=''; renderMonth(); break;
@@ -1983,6 +2064,8 @@ function onClick(e){
     case 'clear-no': ui.confirm=null; renderSettings(); break;
     case 'clear-yes': clearAll(); break;
     case 'signout': signOutNow(); break;
+    case 'acc-add': accAdd(); break;
+    case 'acc-rm': accRemove(t.dataset.email); break;
     case 'renum': ui.confirm='renum'; renderApts(); break;
     case 'renum-no': ui.confirm=null; renderApts(); break;
     case 'renum-yes': renumApply(); break;
@@ -1996,7 +2079,7 @@ function onClick(e){
 function onChange(e){
   var t=e.target, k=t.dataset&&t.dataset.st, f=t.dataset&&t.dataset.f;
   if(f==='arrears'){ paintMonth(); return; }
-  if(!k) return;
+  if(!k||isMeter()) return;
   if(k==='name') S.b.name=t.value.trim();
   if(k==='cc') S.b.cc=t.value.replace(/\D/g,'')||'970';
   if(k==='ground'){ var gn=num(t.value); S.b.ground=gn===null?0:groundCap(gn); t.value=String(S.b.ground); }
