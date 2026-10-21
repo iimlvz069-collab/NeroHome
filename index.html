@@ -928,7 +928,7 @@ function doLogin(){
   }).catch(function(e){ loginBusy(false); loginErr(authMsg(e)); });
 }
 function signOutNow(){
-  if(S.stage==='ready'&&(syncPending()||Object.keys(timers).length)){ toast('في تعديلات لم تُرسل بعد. انتظر حتى تظهر كلمة «متزامن» ثم اخرج.'); return; }
+  if(S.stage==='ready'&&(syncPending()||Object.keys(timers).length)){ toast('في تعديلات لسا بتنرسل، جرّب بعد لحظات.'); return; }
   var fs=fb.fs, au=fb.auth; stopSync();
   Promise.resolve().then(function(){ return fs.terminate(); }).then(function(){ return fs.clearPersistence(); }).catch(function(){})
     .then(function(){ return au.signOut(); }).catch(function(){})
@@ -936,7 +936,7 @@ function signOutNow(){
 }
 function renderLogin(){
   var saved=''; try{ saved=localStorage.getItem('kahraba-email')||''; }catch(e){}
-  main.innerHTML='<section class="band"><h2 class="h2">تسجيل الدخول</h2><p class="lead">سجّل دخولك لترى بيانات العمارة المشتركة. أي تعديل تعمله يظهر عند الطرف الآخر.</p>'+
+  main.innerHTML='<section class="band"><h2 class="h2">تسجيل الدخول</h2>'+
   '<form id="login-form" class="edit-form" autocomplete="on" novalidate>'+
   '<div class="field"><label for="lg-email">البريد الإلكتروني</label><input class="in" id="lg-email" name="email" type="email" dir="ltr" autocomplete="username" inputmode="email" autocapitalize="none" spellcheck="false" value="'+esc(saved)+'"></div>'+
   '<div class="field"><label for="lg-pass">كلمة المرور</label><input class="in" id="lg-pass" name="password" type="password" dir="ltr" autocomplete="current-password"></div>'+
@@ -947,7 +947,7 @@ function renderStage(){
   var st=S.stage;
   if(st==='login') return renderLogin();
   if(st==='denied'){
-    main.innerHTML='<section class="band"><h2 class="h2">لا توجد صلاحية</h2><p class="lead">هذا الحساب'+(fb.user&&fb.user.email?' (<span class="num">'+esc(fb.user.email)+'</span>)':'')+' غير مسموح له بالدخول إلى بيانات العمارة. اطلب ممن أعدّ التطبيق إضافة بريدك إلى قائمة المسموح لهم، أو سجّل الدخول بحساب آخر.</p><div class="btns"><button class="btn primary" data-act="signout">تسجيل الخروج</button></div></section>';
+    main.innerHTML='<section class="band"><h2 class="h2">لا توجد صلاحية</h2><p class="lead">هذا الحساب'+(fb.user&&fb.user.email?' (<span class="num">'+esc(fb.user.email)+'</span>)':'')+' غير مسموح له بالدخول.</p><div class="btns"><button class="btn primary" data-act="signout">تسجيل الخروج</button></div></section>';
     return;
   }
   if(st==='sdk-fail'||st==='error'){
@@ -1011,12 +1011,12 @@ function renderAll(){
 /* ----- roles ----- */
 var METER_NO={'apt-add':1,'apt-edit':1,'apt-save':1,'apt-rm':1,'apt-rm-yes':1,'apt-restore':1,'renum':1,'renum-yes':1,'clear':1,'clear-yes':1,'restore':1,'restore-yes':1,'sample-clear':1,'setup-start':1,'setup-sample':1,'adopt-local':1,'phone-missing':1,'phone-edit':1,'acc-add':1,'acc-rm':1,'backup':1};
 function renderWaiting(){
-  main.innerHTML='<section class="band"><h2 class="h2">لا توجد شقق بعد</h2><p class="lead">لسا ما انضافت شقق للعمارة. المدير هو اللي بيضيفها، وأول ما تنضاف بتظهر عندك هون لوحدها.</p></section>';
+  main.innerHTML='<section class="band"><h2 class="h2">لا توجد شقق بعد</h2></section>';
 }
 function renderMeterSettings(){
   main.innerHTML='<section class="band"><h2 class="h2">الإعدادات</h2></section>'+
   '<section class="band"><h3 class="h3">الحساب</h3><p class="hint" style="margin:0 0 8px">مسجّل الدخول باسم <span class="num">'+esc(fb.user&&fb.user.email||'')+'</span></p>'+
-  '<p class="lead" style="margin-bottom:12px">صلاحية هذا الحساب: إدخال القراءات والمتأخرات والمدفوع فقط. الشقق والسكان وسعر الكيلوواط والإعدادات بيعدّلها المدير.</p>'+
+  '<p class="hint" style="margin:0 0 12px">الصلاحية: قراءات ومتأخرات ومدفوع</p>'+
   '<div class="btns" style="margin-top:0"><button class="btn" data-act="signout">تسجيل الخروج</button></div></section>';
 }
 function accessBand(){
@@ -1040,7 +1040,7 @@ function accAdd(){
   if(em===String(fb.user&&fb.user.email||'').toLowerCase()){ toast('هذا إيميلك أنت، وحساب المدير ما بينضاف هون.'); return; }
   var list=S.acc.meters.slice();
   if(list.indexOf(em)>=0){ toast('هذا الإيميل مضاف من قبل.'); return; }
-  list.push(em); saveAccess(list); toast('انضاف. تأكد إنه منشأ في Firebase (Authentication).');
+  list.push(em); saveAccess(list); toast('تمت الإضافة.');
 }
 function accRemove(em){
   if(!isCloud()||isMeter()||S.stage!=='ready') return;
@@ -1052,10 +1052,9 @@ function accRemove(em){
 /* ----- setup ----- */
 function renderSetup(){
   main.innerHTML='<section class="band"><h2 class="h2">ابدأ بعمارتك</h2>'+
-  '<p class="lead">أدخل اسم العمارة وعدد الشقق وكم شقة في الطابق الأرضي وفي كل طابق بعده، ونوزعها على الطوابق ونسمّيها تلقائياً حسب الطابق (101 و102… في الأول، 201 و202… في الثاني، 403 هي الشقة 3 في الرابع، و1 و2 في الأرضي). بعدها تكتب كل نصف شهر سعر الكيلوواط وقراءة كل عداد، والتطبيق يحسب مبلغ كل شقة والمتأخرات ويجهز كشف الحساب.</p>'+
-  '<div class="two"><div class="field"><label for="s-name">اسم العمارة</label><input class="in" id="s-name" autocomplete="off" placeholder="مثال: عمارة الأمل"></div>'+
+    '<div class="two"><div class="field"><label for="s-name">اسم العمارة</label><input class="in" id="s-name" autocomplete="off" placeholder="مثال: عمارة الأمل"></div>'+
   '<div class="field"><label for="s-count">عدد الشقق</label><input class="in" id="s-count" inputmode="numeric" dir="ltr" autocomplete="off" value="12"></div>'+
-  '<div class="field"><label for="s-ground">عدد شقق الطابق الأرضي</label><input class="in" id="s-ground" inputmode="numeric" dir="ltr" autocomplete="off" value="2"><span class="hint">من إجمالي الشقق. اكتب 0 إذا ما في شقق في الأرضي.</span></div>'+
+  '<div class="field"><label for="s-ground">عدد شقق الطابق الأرضي</label><input class="in" id="s-ground" inputmode="numeric" dir="ltr" autocomplete="off" value="2"></div>'+
   '<div class="field"><label for="s-per">عدد الشقق في كل طابق بعد الأرضي</label><input class="in" id="s-per" inputmode="numeric" dir="ltr" autocomplete="off" value="6"></div></div>'+
   '<div class="btns"><button class="btn primary" data-act="setup-start">ابدأ</button><button class="btn quiet" data-act="restore">لدي نسخة احتياطية</button></div>'+adoptHint()+'</section>';
 }
@@ -1085,7 +1084,7 @@ function startSetup(){
   }
   S.months={}; ui.tab='apts'; ui.ym=ymNow();
   persistAll(); renderAll();
-  toast('تمت إضافة الشقق. اكتب أسماء السكان وأرقامهم، ثم انتقل إلى الكشف.');
+  toast('تمت إضافة الشقق.');
 }
 function loadSample(){
   var s=makeSample(); S.b=s.b; S.months=s.months; ui.tab='month'; ui.ym='2026-10-1';
@@ -1122,7 +1121,6 @@ function aptItem(a,v,rec){
     '<p class="issue" data-p="issue" hidden></p>'+
     '<div class="calc"><div><span class="lbl">الاستهلاك (كيلوواط ساعة)</span><span class="num big" data-p="kwh">—</span></div>'+
     '<div><span class="lbl">مبلغ الفترة</span><span class="num big" data-p="share">—</span></div></div>'+
-    '<p class="hint" style="margin:-6px 0 0">الاستهلاك يُحسب من القراءتين ولا يمكن تعديله.</p>'+
     '<div class="fgrid">'+
       '<div class="field"><label for="ar-'+id+'">متأخرات سابقة (₪)</label><input class="in big-in" id="ar-'+id+'" data-f="arrears" data-id="'+id+'" data-auto="'+(arrAuto?1:0)+'" value="'+esc(arrVal)+'" inputmode="decimal" dir="ltr" autocomplete="off" placeholder="0"></div>'+
       '<div class="field"><label for="p-'+id+'">المدفوع (₪)</label><input class="in big-in" id="p-'+id+'" data-f="paid" data-id="'+id+'" value="'+esc(paid)+'" inputmode="decimal" dir="ltr" autocomplete="off" placeholder="0"></div></div>'+
@@ -1156,19 +1154,18 @@ function renderMonth(){
   '<section class="month-nav" aria-label="الفترة"><button class="nbtn" type="button" data-act="prev" aria-label="الفترة السابقة"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></button>'+
   '<div class="month-title"><div class="eyebrow">كشف كهرباء</div><h2 class="h2">'+esc(ymLabel(ym))+'</h2><div class="eyebrow">'+esc(ymRange(ym))+'</div></div>'+
   '<button class="nbtn" type="button" data-act="next" aria-label="الفترة التالية"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg></button></section>'+
-  (isMeter()?'<p class="hint" style="margin:12px 0 10px">حسابك مخصص لإدخال القراءات والمتأخرات والمدفوع. سعر الكيلوواط والشقق بيعدّلهم المدير.</p>':'')+
   (S.b.sample&&!isMeter()?'<div class="status" data-k="warn">هذه بيانات تجريبية للتعرف على التطبيق. <button class="btn quiet" type="button" data-act="sample-clear">امسحها وابدأ بعمارتك</button></div>':'')+
   '<section class="plain" aria-label="ملخص الفترة"><div class="tiles">'+
   '<div class="tile"><span class="lbl">المطلوب تحصيله</span><span class="num big" id="g-due">—</span></div>'+
   '<div class="tile"><span class="lbl">القراءات</span><span class="big" id="g-count">—</span></div>'+
-  '<label class="tile" for="f-price"><span class="lbl">سعر الكيلوواط</span><input class="tile-in" id="f-price" data-f="price" data-auto="'+(e.priceAuto&&priceVal!==''?1:0)+'" value="'+esc(priceVal)+'" inputmode="decimal" dir="ltr" autocomplete="off" placeholder="0.70"'+(isMeter()?' readonly aria-readonly="true"':'')+'></label></div>'+
+  '<label class="tile" for="f-price"><span class="lbl">سعر الكيلوواط</span><input class="tile-in" id="f-price" data-f="price" data-auto="'+(e.priceAuto&&priceVal!==''?1:0)+'" value="'+esc(priceVal)+'" inputmode="decimal" dir="ltr" autocomplete="off" placeholder="0.70"'+(isMeter()?' readonly aria-readonly="true" data-act="price-locked"':'')+'></label></div>'+
   '<p class="hint">استهلاك العمارة <span class="num" id="g-kwh">—</span> · مجموع المبالغ <span class="num" id="g-total">—</span></p>'+
-  '<p class="hint" id="price-hint"'+(e.priceAuto&&priceVal!==''?'':' hidden')+'>السعر منقول من الفترة السابقة. عدّله متى تغيّر.</p>'+
+  '<p class="hint" id="price-hint"'+(e.priceAuto&&priceVal!==''?'':' hidden')+'>السعر منقول من الفترة السابقة.</p>'+
   '<p class="status" id="mstatus" role="status"></p></section>'+
-  '<section class="plain" aria-labelledby="h-apts"><h3 class="h3" id="h-apts" style="margin-bottom:2px">الشقق</h3><p class="hint" style="margin:0 0 10px">اضغط على أي شقة واكتب قراءتها، ومبلغها بيظهر مباشرة بدون ما تنتظر باقي الشقق.</p>'+
+  '<section class="plain" aria-labelledby="h-apts"><h3 class="h3" id="h-apts" style="margin-bottom:10px">الشقق</h3>'+
   search+chips+
-  (v.apts.length?monthFloors(v,rec)+'<p class="lead" id="f-none" hidden>لا توجد شقة بهذا الرقم أو الاسم.</p>':'<p class="lead">لا توجد شقق في هذه الفترة. أضف شقة من قسم الشقق.</p>')+'</section>'+
-  '<section class="band"><h3 class="h3">ملخص الفترة للجميع</h3><p class="hint" style="margin-top:0">الخطوات: احفظ ملف PDF، ثم افتح واتساب وأرفق الملف بالمحادثة. رابط واتساب يجهز لك نص الرسالة فقط.</p>'+
+  (v.apts.length?monthFloors(v,rec)+'<p class="lead" id="f-none" hidden>لا توجد شقة بهذا الرقم أو الاسم.</p>':'<p class="lead">لا توجد شقق في هذه الفترة.</p>')+'</section>'+
+  '<section class="band"><h3 class="h3">ملخص الفترة للجميع</h3>'+
   '<div class="btns">'+(S.dl?'<button class="btn" type="button" data-act="pdf-summary">ملخص PDF لكل الشقق</button>':'')+(S.dl?'<button class="btn" type="button" data-act="xlsx">ملف Excel لكل الشقق</button>':'')+'<button class="btn primary" type="button" data-act="q-open">إرسال الكشوف واحدة واحدة</button><a class="btn" id="wa-group" target="_blank" rel="noopener noreferrer">رسالة واتساب للمجموعة</a></div></section>';
   paintMonth();
   applySearch();
@@ -1796,9 +1793,8 @@ function paintQueue(quiet){
   if(q.ids===null){
     var L=qList(q.ym,q.only);
     h+='<label class="q-chk"><input type="checkbox" data-act="q-only"'+(q.only?' checked':'')+'><span>فقط الشقق اللي عليها مبلغ متبقي</span></label>'+
-      '<p class="lead" style="margin:0">'+(L.ids.length?'جاهز للإرسال: <b>'+aptCountLabel(L.ids.length)+'</b>.':'ما في شقة جاهزة للإرسال بعد.')+'</p>'+
-      '<p class="hint" style="margin:0">بتضغط الزر، بيفتح واتساب على محادثة الشقة والرسالة جاهزة فيها الاستهلاك والمبلغ والمتأخرات والمتبقي. بتضغط «إرسال» هناك وبترجع للبرنامج لتكمل مع اللي بعدها. إذا بدك ملف PDF كمان فأرفقه بنفسك.</p>';
-    if(L.noPhone.length) h+='<p class="status" data-k="warn">بدون رقم واتساب (ما رح تنبعت لهم): '+esc(qNames(L.noPhone))+'. أضف الرقم من قسم الشقق.</p>';
+      '<p class="lead" style="margin:0">'+(L.ids.length?'جاهز للإرسال: <b>'+aptCountLabel(L.ids.length)+'</b>.':'ما في شقة جاهزة للإرسال بعد.')+'</p>';
+    if(L.noPhone.length) h+='<p class="status" data-k="warn">بدون رقم واتساب (ما رح تنبعت لهم): '+esc(qNames(L.noPhone))+'.</p>';
     if(L.notReady.length) h+='<p class="status" data-k="warn">قراءتهم ناقصة أو السعر مش مكتوب: '+esc(qNames(L.notReady))+'.</p>';
     if(q.only&&L.settled) h+='<p class="hint" style="margin:0">مسددين بالكامل ولن يُرسل لهم: '+L.settled+'.</p>';
     h+='<div class="shbtns"><button class="btn primary" type="button" data-act="q-start"'+(L.ids.length?'':' disabled')+'>ابدأ الإرسال</button><button class="btn" type="button" data-act="q-close">إلغاء</button></div>';
@@ -1858,7 +1854,7 @@ function paintPhoneHint(pre){
   var inp=document.getElementById(pre+'-phone'), hint=document.getElementById(pre+'-phint'), a=document.getElementById(pre+'-ptest');
   if(!inp||!hint||!a) return;
   var cs=document.getElementById(pre+'-cc'), n=waNumber(inp.value,(cs&&cs.value)||S.b.cc);
-  if(!n){ hint.textContent='اكتب الرقم مع الصفر (0599…) أو كاملاً مع مفتاح الدولة (+970…).'; a.hidden=true; a.removeAttribute('href'); return; }
+  if(!n){ hint.textContent=''; a.hidden=true; a.removeAttribute('href'); return; }
   hint.innerHTML='سيُرسل إلى: <span class="num">+'+esc(n)+'</span>'; a.hidden=false; a.href='https://wa.me/'+n;
 }
 function renderApts(){
@@ -1875,12 +1871,12 @@ function renderApts(){
     '<div class="btns" style="margin:0"><button class="btn" data-act="apt-edit" data-id="'+esc(a.id)+'">تعديل</button><button class="btn quiet" data-act="apt-rm" data-id="'+esc(a.id)+'">إزالة</button></div></div></li>';
   }
   main.innerHTML=
-  '<section class="band"><h2 class="h2">الشقق</h2><p class="lead">الشقق الظاهرة هي شقق '+esc(ymLabel(ym))+'. غيّر الفترة من قسم الكشف. رقم واتساب كل شقة تحطه هنا مرة وحدة، وزر واتساب في صفحة الكشف يستخدمه.</p>'+
+  '<section class="band"><h2 class="h2">الشقق</h2><p class="hint" style="margin:0 0 4px">'+esc(ymLabel(ym))+'</p>'+
   (groupByFloor(act).map(function(g){
     return '<div class="floor"><div class="floor-bar"><span>'+esc(floorLabel(g.floor))+'</span><span class="fl-sub">'+aptCountLabel(g.apts.length)+'</span></div><ul class="apts">'+g.apts.map(item).join('')+'</ul></div>';
   }).join('')||'<p class="lead">لا توجد شقق في هذه الفترة.</p>')+'</section>'+
   '<section class="band"><h3 class="h3">إضافة شقة</h3>'+aptForm(null,'n')+'<div class="btns"><button class="btn primary" data-act="apt-add">إضافة الشقة</button></div>'+
-  '<p class="hint" style="margin-top:10px">الشقة الجديدة تدخل الحساب من '+esc(ymLabel(ym))+' فصاعداً، ولا تتغير الفترات السابقة.</p></section>'+renumBand()+
+  '</section>'+renumBand()+
   (inact.length?'<section class="band"><h3 class="h3">شقق غير مفعّلة في هذه الفترة</h3><ul class="rows">'+inact.map(function(a){
     return '<li class="row"><div><div class="apt-name">'+esc(a.name)+'</div><div class="sub">'+esc(a.tenant||'')+'</div></div><button class="btn" data-act="apt-restore" data-id="'+esc(a.id)+'">إعادة تفعيل</button></li>';
   }).join('')+'</ul></section>':'');
@@ -1903,7 +1899,7 @@ function renumBand(){
   if(ui.confirm==='renum'&&plan.length) body='<p class="status" data-k="warn">سيتم تغيير اسم '+plan.length+' شقة، مثلاً «'+esc(plan[0].from)+'» تصير «'+esc(plan[0].to)+'». الأسماء الثانية (مثل «الدكان») ما بتتغير، والقراءات والمدفوعات تبقى كما هي.</p><div class="btns"><button class="btn primary" data-act="renum-yes">نعم، غيّر الأسماء</button><button class="btn" data-act="renum-no">إلغاء</button></div>';
   else if(plan.length) body='<div class="btns"><button class="btn" data-act="renum">رتّب أسماء الشقق حسب الطابق</button></div>';
   else body='<p class="hint">كل الأسماء مرتبة.</p>';
-  return '<section class="band"><h3 class="h3">ترقيم الشقق</h3><p class="lead">الرقم = رقم الطابق ثم رقم الشقة بخانتين: الأولى في الطابق الأول 101، الثالثة في الرابع 403، والأرضي 1 و2. الشقق الجديدة تُسمّى تلقائياً بهذا الشكل.</p>'+body+'</section>';
+  return '<section class="band"><h3 class="h3">ترقيم الشقق</h3>'+body+'</section>';
 }
 function renumApply(){
   var plan=renumPlan(), byId={}; plan.forEach(function(p){ byId[p.id]=p.to; });
@@ -1961,9 +1957,9 @@ function renderHistory(){
     return '<li class="row"><div><div class="apt-name">'+esc(ymLabel(k))+'</div><div class="sub">'+sub+'</div></div><button class="btn" data-act="open-month" data-ym="'+k+'">فتح</button></li>';
   }).join('');
   main.innerHTML=
-  '<section class="band"><h2 class="h2">السجل</h2><p class="lead">كل الفترات التي أدخلت بياناتها، وما على كل شقة من رصيد.</p>'+
-  (S.dl?'<div class="btns"><button class="btn primary" type="button" data-act="xlsx">حفظ كل الشقق كملف Excel</button></div><p class="hint">الملف فيه أربع أوراق: الفترة المعروضة في الكشف مع المجاميع، أرصدة الشقق اليوم، وكل الفترات السابقة لكل شقة، وسعر الكيلوواط لكل فترة (مرة وحدة، مش عند كل ساكن). الملف صورة عن البيانات لحظة الحفظ، فاحفظ نسخة جديدة متى بدك.</p>':'')+'</section>'+
-  '<section class="band"><h3 class="h3">أرصدة الشقق</h3>'+(keys.length?balHtml+'<p class="hint" style="margin-top:10px">الرصيد يحسب من آخر فترة مكتملة لكل شقة.</p>':'<p class="lead">لا توجد فترات بعد. ابدأ من قسم الكشف.</p>')+'</section>'+
+  '<section class="band"><h2 class="h2">السجل</h2>'+
+  (S.dl?'<div class="btns"><button class="btn primary" type="button" data-act="xlsx">حفظ كل الشقق كملف Excel</button></div>':'')+'</section>'+
+  '<section class="band"><h3 class="h3">أرصدة الشقق</h3>'+(keys.length?balHtml+'':'<p class="lead">لا توجد فترات بعد.</p>')+'</section>'+
   '<section class="band"><h3 class="h3">الفترات</h3>'+(keys.length?'<ul class="rows">'+mHtml+'</ul>':'<p class="lead">لا توجد فترات بعد.</p>')+'</section>';
 }
 
@@ -1974,14 +1970,14 @@ function renderSettings(){
   var rn=ui.restore?ui.restore.b.apartments.length:0, rm=ui.restore?Object.keys(ui.restore.months).length:0;
   main.innerHTML=
   '<section class="band"><h2 class="h2">الإعدادات</h2></section>'+
-  (cloud?'<section class="band"><h3 class="h3">الحساب والمزامنة</h3><p class="lead" style="margin-bottom:8px">بيانات العمارة مشتركة: أي تعديل تعمله يظهر عند الطرف الآخر، وأي تعديل منه يظهر عندك.</p><p class="hint" style="margin:0 0 12px">مسجّل الدخول باسم <span class="num">'+esc(fb.user&&fb.user.email||'')+'</span></p><div class="btns" style="margin-top:0"><button class="btn" data-act="signout">تسجيل الخروج</button></div></section>':'')+
+  (cloud?'<section class="band"><h3 class="h3">الحساب والمزامنة</h3><p class="hint" style="margin:0 0 12px">مسجّل الدخول باسم <span class="num">'+esc(fb.user&&fb.user.email||'')+'</span></p><div class="btns" style="margin-top:0"><button class="btn" data-act="signout">تسجيل الخروج</button></div></section>':'')+
   (cloud?accessBand():'')+
   '<section class="band"><h3 class="h3">العمارة</h3><div class="two">'+
   '<div class="field"><label for="st-name">اسم العمارة</label><input class="in" id="st-name" data-st="name" value="'+esc(S.b.name)+'" autocomplete="off"></div>'+
-  '<div class="field"><label for="st-cc">مفتاح الدولة لأرقام واتساب</label><input class="in" id="st-cc" data-st="cc" value="'+esc(S.b.cc||'970')+'" inputmode="numeric" dir="ltr" autocomplete="off"><span class="hint">الأرقام التي تبدأ بصفر مثل 0599123456 تتحول إلى الصيغة الدولية بهذا المفتاح (970 أو 972). وإذا كتبت الرقم كاملاً مع المفتاح (+972…) يُستخدم كما هو.</span></div>'+
-  '<div class="field"><label for="st-ground">عدد شقق الطابق الأرضي</label><input class="in" id="st-ground" data-st="ground" value="'+esc(groundCap(S.b.ground))+'" inputmode="numeric" dir="ltr" autocomplete="off"><span class="hint">0 = لا توجد شقق في الأرضي. يُستخدم لتوزيع الشقق الجديدة فقط.</span></div>'+
-  '<div class="field"><label for="st-per">عدد الشقق في كل طابق بعد الأرضي</label><input class="in" id="st-per" data-st="per" value="'+esc(S.b.perFloor||6)+'" inputmode="numeric" dir="ltr" autocomplete="off"><span class="hint">يُستخدم لتوزيع الشقق الجديدة على الطوابق. تقدر تغيّر طابق أي شقة من قسم الشقق.</span></div></div></section>'+
-  '<section class="band"><h3 class="h3">نسخة احتياطية</h3><p class="lead">'+(cloud?'بيانات العمارة محفوظة على الإنترنت ومشتركة. النسخة الاحتياطية ملف تحفظه عندك للاطمئنان، واستعادتها تستبدل البيانات عند الجميع.':'بياناتك محفوظة في هذا المتصفح فقط. خذ نسخة احتياطية بعد كل كشف.')+'</p>'+
+  '<div class="field"><label for="st-cc">مفتاح الدولة لأرقام واتساب</label><input class="in" id="st-cc" data-st="cc" value="'+esc(S.b.cc||'970')+'" inputmode="numeric" dir="ltr" autocomplete="off"></div>'+
+  '<div class="field"><label for="st-ground">عدد شقق الطابق الأرضي</label><input class="in" id="st-ground" data-st="ground" value="'+esc(groundCap(S.b.ground))+'" inputmode="numeric" dir="ltr" autocomplete="off"></div>'+
+  '<div class="field"><label for="st-per">عدد الشقق في كل طابق بعد الأرضي</label><input class="in" id="st-per" data-st="per" value="'+esc(S.b.perFloor||6)+'" inputmode="numeric" dir="ltr" autocomplete="off"></div></div></section>'+
+  '<section class="band"><h3 class="h3">نسخة احتياطية</h3>'+
   '<div class="btns">'+(S.dl?'<button class="btn primary" data-act="backup">حفظ نسخة احتياطية</button>':'')+'<button class="btn" data-act="restore">استعادة من نسخة</button></div>'+
   (ui.confirm==='restore'&&ui.restore?'<p class="status" data-k="bad">سيتم استبدال بيانات العمارة الحالية'+(cloud?' (وسيراها المدير كذلك)':'')+' بمحتوى النسخة التي اخترتها: '+aptCountLabel(rn)+' و'+rm+' من الفترات.</p><div class="btns"><button class="btn danger" data-act="restore-yes">استبدال البيانات</button><button class="btn" data-act="restore-no">إلغاء</button></div>':'')+'</section>'+
   '<section class="band"><h3 class="h3">مسح كل البيانات</h3>'+
@@ -2027,7 +2023,7 @@ function onClick(e){
     case 'payfull': payFull(id); break;
     case 'open-apt': openApt(id); break;
     case 'close-apt': closeApt(); break;
-    case 'phone-missing': e.preventDefault(); ui.tab='apts'; ui.edit=id; ui.confirm=null; renderAll(); window.scrollTo(0,0); toast('اكتب رقم واتساب الشقة هنا مرة وحدة، وبيتحفظ.'); break;
+    case 'phone-missing': e.preventDefault(); ui.tab='apts'; ui.edit=id; ui.confirm=null; renderAll(); window.scrollTo(0,0); break;
     case 'floor-toggle': {
       var fw=document.getElementById('fl-'+t.dataset.floor), fu=fw&&fw.querySelector('.apts');
       if(fu){ fu.hidden=!fu.hidden; ui.collapsed[t.dataset.floor]=fu.hidden; t.setAttribute('aria-expanded',fu.hidden?'false':'true'); }
@@ -2064,10 +2060,11 @@ function onClick(e){
     case 'signout': signOutNow(); break;
     case 'acc-add': accAdd(); break;
     case 'acc-rm': accRemove(t.dataset.email); break;
+    case 'price-locked': toast('سعر الكيلوواط يحدده المدير.'); break;
     case 'renum': ui.confirm='renum'; renderApts(); break;
     case 'renum-no': ui.confirm=null; renderApts(); break;
     case 'renum-yes': renumApply(); break;
-    case 'phone-edit': e.preventDefault(); ui.tab='apts'; ui.edit=id; ui.confirm=null; renderAll(); window.scrollTo(0,0); toast('غيّر مفتاح الدولة ثم اضغط «جرّب الرقم على واتساب».'); break;
+    case 'phone-edit': e.preventDefault(); ui.tab='apts'; ui.edit=id; ui.confirm=null; renderAll(); window.scrollTo(0,0); break;
     case 'retry': location.reload(); break;
     case 'adopt-local': adoptLocal(); break;
     case 'restore-yes': if(ui.restore) applyRestore(ui.restore); break;
