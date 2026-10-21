@@ -1025,10 +1025,8 @@ function accessBand(){
     return '<li class="row"><div><div class="apt-name num" dir="ltr" style="text-align:right">'+esc(m)+'</div><div class="sub">قراءات ومتأخرات ومدفوع فقط</div></div><button class="btn" type="button" data-act="acc-rm" data-email="'+esc(m)+'">إزالة</button></li>';
   }).join('')+'</ul>':'<p class="hint" style="margin:0 0 6px">لسا ما في حساب مخصص للقراءات.</p>';
   return '<section class="band"><h3 class="h3">الصلاحيات</h3>'+
-  '<p class="lead" style="margin-bottom:10px">الحسابات اللي بتظهر تحت بتقدر تدخل القراءات والمتأخرات والمدفوع فقط، وما بتقدر تعدّل الشقق ولا السكان ولا السعر ولا الإعدادات. حساب المدير الكامل بيتحدد من قواعد Firebase.</p>'+
   list+
-  '<div class="acc-add"><div class="field"><label for="acc-email">إيميل حساب القراءات</label><input class="in" id="acc-email" type="email" dir="ltr" autocomplete="off" inputmode="email" autocapitalize="none" spellcheck="false" placeholder="reader@gmail.com"></div><button class="btn primary" type="button" data-act="acc-add">إضافة</button></div>'+
-  '<p class="hint">لازم يكون الحساب منشأ أصلاً في Firebase (Authentication ثم Users). إزالة الإيميل من هون بتمنعه من الدخول نهائياً (بعد ما تنحط القواعد الجديدة).</p></section>';
+  '<div class="acc-add"><div class="field"><label for="acc-email">إيميل حساب القراءات</label><input class="in" id="acc-email" type="email" dir="ltr" autocomplete="off" inputmode="email" autocapitalize="none" spellcheck="false" placeholder="reader@gmail.com"></div><button class="btn primary" type="button" data-act="acc-add">إضافة</button></div></section>';
 }
 function saveAccess(list){
   S.acc={meters:list};
