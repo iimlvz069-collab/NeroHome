@@ -965,24 +965,33 @@ function load(){
 
 /* ----- sample data ----- */
 function makeSample(){
-  var ids=[uid(),uid(),uid(),uid()];
-  var b={name:'عمارة المثال',cc:'970',perFloor:2,ground:0,sample:true,apartments:[
-    {id:ids[0],name:'شقة 1',tenant:'أبو أحمد',phone:'',floor:1,from:'',to:''},
-    {id:ids[1],name:'شقة 2',tenant:'أم محمد',phone:'',floor:1,from:'',to:''},
-    {id:ids[2],name:'شقة 3',tenant:'سامر',phone:'',floor:2,from:'',to:''},
-    {id:ids[3],name:'شقة 4',tenant:'ليلى',phone:'',floor:2,from:'',to:''}]};
-  var sep={price:'0.78',readings:{},paid:{},arrears:{}}, oct={price:'',readings:{},paid:{},arrears:{}};
-  var sepR=[[4210,4398],[8120,8265],[1530,1741],[6680,6790]], octR=[4551,8386,1920,6871];
-  ids.forEach(function(id,i){
-    sep.readings[id]={prev:String(sepR[i][0]),curr:String(sepR[i][1])};
-    oct.readings[id]={prev:'',curr:String(octR[i])};
+  var names=['أبو أحمد','أم محمد','سامر','ليلى','أبو خالد','أم يوسف','محمود','هدى','أبو سليم','أم رامي','نادر','ريم','أبو عمر','أم زيد','خالد','سلمى','أبو علي','أم سعيد','يوسف','دعاء'];
+  var apts=[], used={};
+  function add(name,floor){
+    var id=uid(); while(used[id]) id=uid(); used[id]=1;
+    var i=apts.length;
+    apts.push({id:id,name:name,tenant:(i===9||i===16)?'':names[i],phone:'',cc:'',floor:floor,from:'',to:''});
+  }
+  add('شقة 1',0); add('شقة 2',0);
+  for(var f=1;f<=3;f++) for(var n=1;n<=6;n++) add('شقة '+(f*100+n),f);
+  var b={name:'عمارة المثال',cc:'970',perFloor:6,ground:2,sample:true,apartments:apts};
+  var cur=ymNow(), prv=ymShift(cur,-1);
+  var pm={price:'0.78',readings:{},paid:{},arrears:{}}, cm={price:'',readings:{},paid:{},arrears:{}};
+  apts.forEach(function(a,i){
+    var start=1200+((i*733)%7000), use1=70+((i*53)%190), use2=60+((i*37)%170);
+    pm.readings[a.id]={prev:String(start),curr:String(start+use1)};
+    if(i<14) cm.readings[a.id]={prev:'',curr:String(start+use1+use2)};
   });
-  sep.arrears[ids[1]]='35';
-  var months={'2026-09-2':sep,'2026-10-1':oct};
-  var v=monthView(b,months,'2026-09-2');
-  v.res.rows.forEach(function(r,i){
-    var due=v.due[r.id]/100;
-    sep.paid[r.id]=(i===0||i===2)?due.toFixed(2):i===1?String(Math.round(due/2)):'';
+  pm.arrears[apts[3].id]='45'; pm.arrears[apts[8].id]='120';
+  var months={}; months[prv]=pm; months[cur]=cm;
+  var v=monthView(b,months,prv);
+  apts.forEach(function(a,i){
+    var due=(v.due[a.id]||0)/100;
+    pm.paid[a.id]=(i%5===0)?'':(i%5===1)?String(Math.round(due/2)):due.toFixed(2);
+  });
+  var w=monthView(b,months,cur);
+  apts.forEach(function(a,i){
+    if(i<14&&i%4===2&&w.due[a.id]!==undefined) cm.paid[a.id]=(w.due[a.id]/100).toFixed(2);
   });
   return {b:b,months:months};
 }
@@ -1056,7 +1065,7 @@ function renderSetup(){
   '<div class="field"><label for="s-count">عدد الشقق</label><input class="in" id="s-count" inputmode="numeric" dir="ltr" autocomplete="off" value="12"></div>'+
   '<div class="field"><label for="s-ground">عدد شقق الطابق الأرضي</label><input class="in" id="s-ground" inputmode="numeric" dir="ltr" autocomplete="off" value="2"></div>'+
   '<div class="field"><label for="s-per">عدد الشقق في كل طابق بعد الأرضي</label><input class="in" id="s-per" inputmode="numeric" dir="ltr" autocomplete="off" value="6"></div></div>'+
-  '<div class="btns"><button class="btn primary" data-act="setup-start">ابدأ</button><button class="btn quiet" data-act="restore">لدي نسخة احتياطية</button></div>'+adoptHint()+'</section>';
+  '<div class="btns"><button class="btn primary" data-act="setup-start">ابدأ</button><button class="btn" data-act="setup-sample">مثال جاهز للتجربة</button><button class="btn quiet" data-act="restore">لدي نسخة احتياطية</button></div>'+adoptHint()+'</section>';
 }
 function adoptHint(){
   var o=isCloud()?localSnapshot():null; if(!o) return '';
@@ -1087,7 +1096,7 @@ function startSetup(){
   toast('تمت إضافة الشقق.');
 }
 function loadSample(){
-  var s=makeSample(); S.b=s.b; S.months=s.months; ui.tab='month'; ui.ym='2026-10-1';
+  var s=makeSample(); S.b=s.b; S.months=s.months; ui.tab='month'; ui.ym=ymNow();
   persistAll(); renderAll();
 }
 function clearAll(){
@@ -2043,7 +2052,7 @@ function onClick(e){
     case 'open-month': ui.tab='month'; ui.ym=t.dataset.ym; renderAll(); window.scrollTo(0,0); break;
     case 'setup-start': startSetup(); break;
     case 'setup-sample': loadSample(); break;
-    case 'sample-clear': clearAll(); break;
+    case 'sample-clear': ui.tab='settings'; ui.confirm='clear'; renderAll(); window.scrollTo(0,0); break;
     case 'restore': pickBackup(); break;
     case 'apt-add': addApt(); break;
     case 'apt-edit': ui.edit=id; ui.confirm=null; renderApts(); break;
