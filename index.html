@@ -45,6 +45,10 @@ body{
   -webkit-text-size-adjust:100%;
 }
 body.sheet-open{overflow:hidden}
+.q-chk{display:flex;align-items:center;gap:10px;font-weight:600;min-height:44px}
+.q-chk input{width:22px;height:22px;flex:none;accent-color:var(--accent)}
+.q-prog{align-self:flex-start;padding:3px 12px;border-radius:999px;background:var(--soft);color:var(--ink2);font-size:13px;font-weight:700}
+.q-msg{white-space:pre-wrap;background:var(--soft);border-radius:16px;padding:10px 12px;font-size:14px;line-height:1.7;max-height:170px;overflow:auto}
 body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);background:var(--paper);z-index:10}
 .wrap,.top-in,.bnav-in{max-width:760px;margin-inline:auto}
 .top{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--paper)}
@@ -830,7 +834,7 @@ function maybeReady(){
   }
 }
 function busyUi(){
-  if(ui.open||ui.edit||ui.confirm) return true;
+  if(ui.open||ui.edit||ui.confirm||ui.q) return true;
   var el=document.activeElement;
   if(el&&main.contains(el)&&/^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName)) return true;
   if(ui.tab==='apts'){
@@ -1099,7 +1103,7 @@ function renderMonth(){
   search+chips+
   (v.apts.length?monthFloors(v,rec)+'<p class="lead" id="f-none" hidden>لا توجد شقة بهذا الرقم أو الاسم.</p>':'<p class="lead">لا توجد شقق في هذه الفترة. أضف شقة من قسم الشقق.</p>')+'</section>'+
   '<section class="band"><h3 class="h3">ملخص الفترة للجميع</h3><p class="hint" style="margin-top:0">الخطوات: احفظ ملف PDF، ثم افتح واتساب وأرفق الملف بالمحادثة. رابط واتساب يجهز لك نص الرسالة فقط.</p>'+
-  '<div class="btns">'+(S.dl?'<button class="btn" type="button" data-act="pdf-summary">ملخص PDF لكل الشقق</button>':'')+'<a class="btn" id="wa-group" target="_blank" rel="noopener noreferrer">رسالة واتساب للمجموعة</a></div></section>';
+  '<div class="btns">'+(S.dl?'<button class="btn" type="button" data-act="pdf-summary">ملخص PDF لكل الشقق</button>':'')+(S.dl?'<button class="btn" type="button" data-act="xlsx">ملف Excel لكل الشقق</button>':'')+'<button class="btn primary" type="button" data-act="q-open">إرسال الكشوف واحدة واحدة</button><a class="btn" id="wa-group" target="_blank" rel="noopener noreferrer">رسالة واتساب للمجموعة</a></div></section>';
   paintMonth();
   applySearch();
 }
@@ -1219,6 +1223,7 @@ function paintMonth(){
   if(res.ok){ g.href=waLink('',S.b.cc,summaryMessage(S.b.name,ym,v,S.months)); g.removeAttribute('aria-disabled'); }
   else { g.removeAttribute('href'); g.setAttribute('aria-disabled','true'); }
   var sb=main.querySelector('[data-act="pdf-summary"]'); if(sb) sb.disabled=!res.ok;
+  if(ui.q) paintQueue(true);
 }
 function ensureMonth(ym){
   if(!S.months[ym]) S.months[ym]={price:'',readings:{},paid:{},arrears:{}};
@@ -1445,7 +1450,7 @@ function canvasesToPdf(canvases){
 /* Saving files outside any host app: on phones offer the system share sheet (WhatsApp is one tap away), elsewhere download. */
 function downloadShim(){
   return {save:function(r){
-    var data=r.data, isPdf=/\.pdf$/i.test(r.filename);
+    var data=r.data, isPdf=/\.(pdf|xlsx)$/i.test(r.filename);
     var blob=(data instanceof Blob)?data:new Blob([data],{type:/\.json$/i.test(r.filename)?'application/json':'text/plain'});
     function viaLink(){
       var u=URL.createObjectURL(blob), a=document.createElement('a');
@@ -1456,7 +1461,7 @@ function downloadShim(){
     var touch=/Android|iPhone|iPad|iPod/i.test(navigator.userAgent||'');
     if(isPdf&&touch&&navigator.canShare&&navigator.share){
       try{
-        var f=new File([blob],r.filename,{type:'application/pdf'});
+        var f=new File([blob],r.filename,{type:blob.type||'application/pdf'});
         if(navigator.canShare({files:[f]})){
           return navigator.share({files:[f]}).then(function(){return {status:'saved'};},function(e){
             if(e&&e.name==='AbortError') throw {code:'declined'};
@@ -1508,6 +1513,255 @@ function exportSummary(){
   }).catch(function(e){ console.warn(e); toast('تعذر تجهيز الملف.'); }).then(function(){ setBusy(false); });
 }
 
+/* ----- Excel export (a real .xlsx written by hand: no libraries, works offline) ----- */
+var XLSX_MIME='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+function xUtf8(s){
+  if(window.TextEncoder) return new TextEncoder().encode(s);
+  var b=unescape(encodeURIComponent(s)), a=new Uint8Array(b.length);
+  for(var i=0;i<b.length;i++) a[i]=b.charCodeAt(i);
+  return a;
+}
+var CRC_T=null;
+function crc32(u8){
+  if(!CRC_T){ CRC_T=new Uint32Array(256); for(var n=0;n<256;n++){ var c=n; for(var k=0;k<8;k++) c=(c&1)?(0xEDB88320^(c>>>1)):(c>>>1); CRC_T[n]=c>>>0; } }
+  var crc=0xFFFFFFFF;
+  for(var i=0;i<u8.length;i++) crc=CRC_T[(crc^u8[i])&0xFF]^(crc>>>8);
+  return (crc^0xFFFFFFFF)>>>0;
+}
+/* A zip with stored (uncompressed) entries: enough for an .xlsx. */
+function zipStore(files){
+  var parts=[], central=[], off=0, csz=0;
+  files.forEach(function(f){
+    var nm=xUtf8(f.name), crc=crc32(f.data), sz=f.data.length;
+    var lh=new Uint8Array(30+nm.length), dv=new DataView(lh.buffer);
+    dv.setUint32(0,0x04034b50,true); dv.setUint16(4,20,true); dv.setUint16(6,0x0800,true); dv.setUint16(8,0,true);
+    dv.setUint16(10,0,true); dv.setUint16(12,33,true); dv.setUint32(14,crc,true); dv.setUint32(18,sz,true); dv.setUint32(22,sz,true);
+    dv.setUint16(26,nm.length,true); dv.setUint16(28,0,true); lh.set(nm,30);
+    parts.push(lh,f.data);
+    var ch=new Uint8Array(46+nm.length), cv=new DataView(ch.buffer);
+    cv.setUint32(0,0x02014b50,true); cv.setUint16(4,20,true); cv.setUint16(6,20,true); cv.setUint16(8,0x0800,true); cv.setUint16(10,0,true);
+    cv.setUint16(12,0,true); cv.setUint16(14,33,true); cv.setUint32(16,crc,true); cv.setUint32(20,sz,true); cv.setUint32(24,sz,true);
+    cv.setUint16(28,nm.length,true); cv.setUint16(30,0,true); cv.setUint16(32,0,true); cv.setUint16(34,0,true); cv.setUint16(36,0,true);
+    cv.setUint32(38,0,true); cv.setUint32(42,off,true); ch.set(nm,46);
+    central.push(ch); off+=lh.length+sz; csz+=ch.length;
+  });
+  var end=new Uint8Array(22), ev=new DataView(end.buffer);
+  ev.setUint32(0,0x06054b50,true); ev.setUint16(8,files.length,true); ev.setUint16(10,files.length,true); ev.setUint32(12,csz,true); ev.setUint32(16,off,true);
+  return new Blob(parts.concat(central,[end]),{type:XLSX_MIME});
+}
+function xEsc(s){ return String(s).replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g,'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function xCol(i){ return String.fromCharCode(65+i); }
+/* cell styles (index into cellXfs): 1 header, 2 text, 3 money, 4 number, 5 kWh, 6 price, 7..10 totals row */
+var X_STYLES='<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'+
+'<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'+
+'<numFmts count="1"><numFmt numFmtId="164" formatCode="0.00##"/></numFmts>'+
+'<fonts count="3"><font><sz val="11"/><name val="Arial"/></font><font><b/><sz val="11"/><name val="Arial"/></font><font><b/><sz val="11"/><color rgb="FFFFFFFF"/><name val="Arial"/></font></fonts>'+
+'<fills count="4"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill>'+
+'<fill><patternFill patternType="solid"><fgColor rgb="FF1F4FBF"/><bgColor indexed="64"/></patternFill></fill>'+
+'<fill><patternFill patternType="solid"><fgColor rgb="FFE4EBFA"/><bgColor indexed="64"/></patternFill></fill></fills>'+
+'<borders count="2"><border><left/><right/><top/><bottom/><diagonal/></border>'+
+'<border><left style="thin"><color rgb="FFD3DBD8"/></left><right style="thin"><color rgb="FFD3DBD8"/></right><top style="thin"><color rgb="FFD3DBD8"/></top><bottom style="thin"><color rgb="FFD3DBD8"/></bottom><diagonal/></border></borders>'+
+'<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>'+
+'<cellXfs count="11">'+
+'<xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>'+
+'<xf numFmtId="0" fontId="2" fillId="2" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf>'+
+'<xf numFmtId="0" fontId="0" fillId="0" borderId="1" xfId="0" applyBorder="1"/>'+
+'<xf numFmtId="4" fontId="0" fillId="0" borderId="1" xfId="0" applyNumberFormat="1" applyBorder="1"/>'+
+'<xf numFmtId="0" fontId="0" fillId="0" borderId="1" xfId="0" applyBorder="1"/>'+
+'<xf numFmtId="2" fontId="0" fillId="0" borderId="1" xfId="0" applyNumberFormat="1" applyBorder="1"/>'+
+'<xf numFmtId="164" fontId="0" fillId="0" borderId="1" xfId="0" applyNumberFormat="1" applyBorder="1"/>'+
+'<xf numFmtId="0" fontId="1" fillId="3" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1"/>'+
+'<xf numFmtId="4" fontId="1" fillId="3" borderId="1" xfId="0" applyNumberFormat="1" applyFont="1" applyFill="1" applyBorder="1"/>'+
+'<xf numFmtId="2" fontId="1" fillId="3" borderId="1" xfId="0" applyNumberFormat="1" applyFont="1" applyFill="1" applyBorder="1"/>'+
+'<xf numFmtId="0" fontId="1" fillId="3" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1"/>'+
+'</cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>';
+/* cell: [value, style]; value is a number, a string, or null (empty, keeps the border) */
+function xSheetXml(sh,selected){
+  var rows=[sh.header].concat(sh.rows), maxC=sh.header.length, out='';
+  rows.forEach(function(r,ri){
+    var cells='';
+    r.forEach(function(c,ci){
+      var ref=xCol(ci)+(ri+1), v=c[0], st=c[1];
+      if(v===null||v===undefined||v===''||(typeof v==='number'&&!isFinite(v))) cells+='<c r="'+ref+'" s="'+st+'"/>';
+      else if(typeof v==='number') cells+='<c r="'+ref+'" s="'+st+'"><v>'+String(v)+'</v></c>';
+      else cells+='<c r="'+ref+'" s="'+st+'" t="inlineStr"><is><t xml:space="preserve">'+xEsc(v)+'</t></is></c>';
+    });
+    out+='<row r="'+(ri+1)+'"'+(ri===0?' ht="32" customHeight="1"':'')+'>'+cells+'</row>';
+  });
+  var last=xCol(maxC-1)+rows.length;
+  return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'+
+  '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetPr><pageSetUpPr fitToPage="1"/></sheetPr>'+
+  '<dimension ref="A1:'+last+'"/>'+
+  '<sheetViews><sheetView rightToLeft="1"'+(selected?' tabSelected="1"':'')+' workbookViewId="0"><pane ySplit="1" topLeftCell="A2" activePane="bottomLeft" state="frozen"/><selection pane="bottomLeft" activeCell="A2" sqref="A2"/></sheetView></sheetViews>'+
+  '<sheetFormatPr defaultRowHeight="18"/>'+
+  '<cols>'+sh.widths.map(function(w,i){ return '<col min="'+(i+1)+'" max="'+(i+1)+'" width="'+w+'" customWidth="1"/>'; }).join('')+'</cols>'+
+  '<sheetData>'+out+'</sheetData>'+
+  (sh.filter?'<autoFilter ref="A1:'+xCol(maxC-1)+(sh.filter)+'"/>':'')+
+  '<pageMargins left="0.5" right="0.5" top="0.6" bottom="0.6" header="0.3" footer="0.3"/>'+
+  '<pageSetup orientation="landscape" fitToWidth="1" fitToHeight="0"/></worksheet>';
+}
+function xSheetName(raw,used){
+  var n=String(raw||'').replace(/[\\\/?*\[\]:]/g,' ').replace(/\s+/g,' ').trim().slice(0,31)||'Sheet';
+  var base=n, i=2; while(used[n.toLowerCase()]){ n=base.slice(0,28)+' '+i; i++; }
+  used[n.toLowerCase()]=1; return n;
+}
+function xWorkbook(sheets){
+  var used={}, names=sheets.map(function(s){ return xSheetName(s.name,used); });
+  var files=[
+    {name:'[Content_Types].xml',text:'<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>'+
+      sheets.map(function(s,i){ return '<Override PartName="/xl/worksheets/sheet'+(i+1)+'.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>'; }).join('')+
+      '<Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/></Types>'},
+    {name:'_rels/.rels',text:'<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>'},
+    {name:'xl/workbook.xml',text:'<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><bookViews><workbookView xWindow="0" yWindow="0" windowWidth="24000" windowHeight="12000" activeTab="0"/></bookViews><sheets>'+
+      names.map(function(n,i){ return '<sheet name="'+xEsc(n)+'" sheetId="'+(i+1)+'" r:id="rId'+(i+1)+'"/>'; }).join('')+'</sheets></workbook>'},
+    {name:'xl/_rels/workbook.xml.rels',text:'<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'+
+      sheets.map(function(s,i){ return '<Relationship Id="rId'+(i+1)+'" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet'+(i+1)+'.xml"/>'; }).join('')+
+      '<Relationship Id="rId'+(sheets.length+1)+'" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>'},
+    {name:'xl/styles.xml',text:X_STYLES}
+  ];
+  sheets.forEach(function(s,i){ files.push({name:'xl/worksheets/sheet'+(i+1)+'.xml',text:xSheetXml(s,i===0)}); });
+  return zipStore(files.map(function(f){ return {name:f.name,data:xUtf8(f.text)}; }));
+}
+
+/* one period, every apartment: the same figures the screen shows */
+function xPeriodRows(k){
+  var v=monthView(S.b,S.months,k), rec=S.months[k]||{}, byId={}, out=[];
+  v.res.rows.forEach(function(r){ byId[r.id]=r; });
+  groupByFloor(v.apts).forEach(function(g){ g.apts.forEach(function(a){
+    var r=byId[a.id]||{}, paidC=paidCents(rec,a.id), ready=(r.shareC!==null&&r.shareC!==undefined), st;
+    if(ready) st=statusOf(v.due[a.id],paidC)==='paid'?'مسدد':statusOf(v.due[a.id],paidC)==='partial'?'دفع جزئي':'غير مدفوع';
+    else if(r.issue==='negative') st='راجع القراءة';
+    else if(r.issue==='missing') st=(r.curr===null||r.curr===undefined)?'ينقص القراءة':'ينقص القراءة السابقة';
+    else st='بانتظار السعر';
+    out.push({floor:g.floor,apt:a,prev:r.prev,curr:r.curr,kwh:ready?r.kwh:null,price:v.res.price,
+      shareC:ready?r.shareC:null,arrC:ready?v.arr[a.id]:null,paidC:paidC,dueC:ready?v.due[a.id]:null,status:st,ready:ready});
+  }); });
+  return out;
+}
+var X_MONEY=function(c){ return (c===null||c===undefined)?null:Math.round(c)/100; };
+var X_HEAD=['الشقة','الطابق','الساكن','القراءة السابقة','القراءة الحالية','الاستهلاك (ك.و.س)','سعر الكيلوواط (₪)','مبلغ الفترة (₪)','المتأخرات السابقة (₪)','المدفوع (₪)','المتبقي (₪)','الحالة'];
+function xAptCells(it,withPeriod,pLabel,pRange){
+  var c=[];
+  if(withPeriod){ c.push([pLabel,2],[pRange,2]); }
+  c.push([it.apt.name,2],[floorLabel(it.floor),2],[it.apt.tenant||'',2],
+    [it.prev,4],[it.curr,4],[it.kwh,5],[it.price,6],[X_MONEY(it.shareC),3],[X_MONEY(it.arrC),3],[it.paidC>0||it.ready?X_MONEY(it.paidC):null,3],[X_MONEY(it.dueC),3],[it.status,2]);
+  return c;
+}
+function buildExcel(){
+  var ym=ui.ym||ymNow(), sheets=[];
+  /* 1. the period shown on the screen, with totals */
+  var cur=xPeriodRows(ym), tk=0, ts=0, ta=0, tp=0, td=0;
+  cur.forEach(function(it){ if(it.ready){ tk+=it.kwh; ts+=it.shareC; ta+=it.arrC; tp+=it.paidC; if(it.dueC>0) td+=it.dueC; } });
+  var curRows=cur.map(function(it){ return xAptCells(it,false); });
+  curRows.push([['المجموع (الشقق الجاهزة)',7],[null,10],[null,10],[null,10],[null,10],[Math.round(tk*100)/100,9],[null,10],[X_MONEY(ts),8],[X_MONEY(ta),8],[X_MONEY(tp),8],[X_MONEY(td),8],[null,10]]);
+  sheets.push({name:ymLabel(ym),header:X_HEAD.map(function(h){return [h,1];}),rows:curRows,widths:[16,16,22,14,14,16,16,16,18,14,14,18],filter:0});
+  /* 2. what each apartment owes today */
+  var carry=carryBefore(S.b,S.months,'9999-12-2'), bal=[];
+  groupByFloor(S.b.apartments).forEach(function(g){ g.apts.forEach(function(a){
+    var c=carry[a.id]||0;
+    bal.push([[a.name,2],[floorLabel(g.floor),2],[a.tenant||'',2],[a.phone||'',2],[X_MONEY(c),3],[c>0?'عليه':c<0?'له':'مسدّد',2]]);
+  }); });
+  sheets.push({name:'الأرصدة',header:['الشقة','الطابق','الساكن','رقم واتساب','الرصيد (₪)','الحالة'].map(function(h){return [h,1];}),rows:bal,widths:[16,16,22,18,16,14],filter:bal.length+1});
+  /* 3. every period, every apartment that has a reading or a payment */
+  var keys=Object.keys(S.months).filter(isValidYm).sort(), all=[];
+  keys.forEach(function(k){
+    xPeriodRows(k).forEach(function(it){
+      if(it.kwh!==null||it.paidC>0) all.push(xAptCells(it,true,ymLabel(k),ymRange(k)));
+    });
+  });
+  sheets.push({name:'كل الفترات',header:['الفترة','النطاق'].concat(X_HEAD).map(function(h){return [h,1];}),rows:all,widths:[28,22,16,16,22,14,14,16,16,16,18,14,14,18],filter:all.length+1});
+  return xWorkbook(sheets);
+}
+function exportExcel(){
+  var blob;
+  try{ blob=buildExcel(); }catch(e){ console.warn(e); toast('تعذر تجهيز ملف Excel.'); return; }
+  saveFile('كهرباء '+safeName(S.b.name||'العمارة')+' - '+new Date().toLocaleDateString('en-CA')+'.xlsx',blob,'تم حفظ ملف Excel.');
+}
+
+/* ----- send the statements one by one: every tap opens the next apartment's WhatsApp chat with its message ready ----- */
+function qWrap(){
+  var w=document.getElementById('q-wrap');
+  if(!w){
+    w=document.createElement('div'); w.id='q-wrap'; w.className='sheet-wrap'; w.hidden=true;
+    w.addEventListener('click',onClick);
+    document.body.appendChild(w);
+  }
+  return w;
+}
+function qList(ym,onlyDue){
+  var v=monthView(S.b,S.months,ym), byId={}, out={ids:[],noPhone:[],notReady:[],settled:0};
+  v.res.rows.forEach(function(r){ byId[r.id]=r; });
+  groupByFloor(v.apts).forEach(function(g){ g.apts.forEach(function(a){
+    var r=byId[a.id];
+    if(!r||r.shareC===null||r.shareC===undefined){ out.notReady.push(a.name); return; }
+    if(onlyDue&&!(v.due[a.id]>0)){ out.settled++; return; }
+    if(!waNumber(a.phone,ccOf(a))){ out.noPhone.push(a.name); return; }
+    out.ids.push(a.id);
+  }); });
+  return out;
+}
+function qNames(a){ return a.length>5?a.slice(0,4).join('، ')+' و'+(a.length-4)+' أخرى':a.join('، '); }
+function qOpen(){ ui.q={ym:ui.ym,only:true,ids:null,i:0,opened:{},skipped:{}}; paintQueue(); }
+function qClose(){
+  ui.q=null; var w=qWrap(); w.hidden=true; w.innerHTML='';
+  if(!ui.open) document.body.classList.remove('sheet-open');
+}
+function qAdvance(from,step){
+  var q=ui.q; if(!q||!q.ids||q.ids[q.i]!==from) return;
+  q.i+=step; paintQueue();
+}
+function paintQueue(quiet){
+  var q=ui.q; if(!q){ qClose(); return; }
+  var w=qWrap(); w.hidden=false; document.body.classList.add('sheet-open');
+  var X='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>';
+  var h='<div class="scrim" data-act="q-close"></div><section class="sheet" role="dialog" aria-modal="true" aria-label="إرسال الكشوف واحدة واحدة" tabindex="-1"><div class="grab" aria-hidden="true"></div>'+
+    '<div class="sh-head"><div><div class="aname">إرسال الكشوف واحدة واحدة</div><div class="asub">'+esc(ymLabel(q.ym))+'</div></div>'+
+    '<button class="x" type="button" data-act="q-close" aria-label="إغلاق">'+X+'</button></div>';
+  if(q.ids===null){
+    var L=qList(q.ym,q.only);
+    h+='<label class="q-chk"><input type="checkbox" data-act="q-only"'+(q.only?' checked':'')+'><span>فقط الشقق اللي عليها مبلغ متبقي</span></label>'+
+      '<p class="lead" style="margin:0">'+(L.ids.length?'جاهز للإرسال: <b>'+aptCountLabel(L.ids.length)+'</b>.':'ما في شقة جاهزة للإرسال بعد.')+'</p>'+
+      '<p class="hint" style="margin:0">بتضغط الزر، بيفتح واتساب على محادثة الشقة والرسالة جاهزة فيها الاستهلاك والمبلغ والمتأخرات والمتبقي. بتضغط «إرسال» هناك وبترجع للبرنامج لتكمل مع اللي بعدها. إذا بدك ملف PDF كمان فأرفقه بنفسك.</p>';
+    if(L.noPhone.length) h+='<p class="status" data-k="warn">بدون رقم واتساب (ما رح تنبعت لهم): '+esc(qNames(L.noPhone))+'. أضف الرقم من قسم الشقق.</p>';
+    if(L.notReady.length) h+='<p class="status" data-k="warn">قراءتهم ناقصة أو السعر مش مكتوب: '+esc(qNames(L.notReady))+'.</p>';
+    if(q.only&&L.settled) h+='<p class="hint" style="margin:0">مسددين بالكامل ولن يُرسل لهم: '+L.settled+'.</p>';
+    h+='<div class="shbtns"><button class="btn primary" type="button" data-act="q-start"'+(L.ids.length?'':' disabled')+'>ابدأ الإرسال</button><button class="btn" type="button" data-act="q-close">إلغاء</button></div>';
+  } else if(q.i>=q.ids.length){
+    var nOpen=Object.keys(q.opened).length, sk=[];
+    q.ids.forEach(function(id){ if(q.skipped[id]){ var a=S.b.apartments.filter(function(x){return x.id===id;})[0]; if(a) sk.push(a.name); } });
+    h+='<p class="lead" style="margin:0">خلصت القائمة. فتحت محادثة '+aptCountLabel(nOpen)+'.</p>'+
+      (sk.length?'<p class="status" data-k="warn">تخطّيت: '+esc(qNames(sk))+'.</p>':'')+
+      '<div class="shbtns"><button class="btn primary" type="button" data-act="q-close">تم</button>'+(q.ids.length?'<button class="btn" type="button" data-act="q-prev">رجوع للأخيرة</button>':'')+'</div>';
+  } else {
+    var id=q.ids[q.i], v=monthView(S.b,S.months,q.ym), rec=S.months[q.ym]||{};
+    var apt=v.apts.filter(function(a){return a.id===id;})[0], row=v.res.rows.filter(function(r){return r.id===id;})[0];
+    var ok=apt&&row&&row.shareC!==null&&row.shareC!==undefined&&waNumber(apt.phone,ccOf(apt));
+    var nextA=q.ids[q.i+1]?S.b.apartments.filter(function(x){return x.id===q.ids[q.i+1];})[0]:null;
+    h+='<div class="q-prog" role="status">'+(q.i+1)+' من '+q.ids.length+'</div>';
+    if(ok){
+      var due=v.due[id], txt=statementMessage(S.b.name,q.ym,apt,row,v.res.price,v.arr[id],paidCents(rec,id));
+      h+='<div class="sh-id"><span class="av lg">'+esc(avLabel(apt.name))+'</span><div><div class="aname">'+esc(apt.name)+'</div><div class="asub">'+esc(apt.tenant||'')+'<span class="num" dir="ltr"> +'+esc(waNumber(apt.phone,ccOf(apt)))+'</span></div></div></div>'+
+        '<div class="duebox"><div><span class="lbl">المطلوب الآن</span><span class="num big">'+fmtMoney(Math.max(0,due))+' ₪</span></div></div>'+
+        '<a class="btn primary" data-act="q-go" data-id="'+esc(id)+'" href="'+esc(waLink(apt.phone,ccOf(apt),txt))+'" target="_blank" rel="noopener noreferrer">افتح واتساب لـ '+esc(apt.name)+'</a>'+
+        '<div class="q-msg" dir="rtl">'+esc(txt)+'</div>';
+    } else {
+      h+='<p class="status" data-k="warn">'+esc(apt?apt.name:'هذه الشقة')+' تغيّرت بياناتها (الرقم أو القراءة)، تخطّاها.</p>';
+    }
+    h+='<div class="shbtns"><button class="btn" type="button" data-act="q-prev"'+(q.i===0?' disabled':'')+'>السابقة</button><button class="btn" type="button" data-act="q-skip" data-id="'+esc(id)+'">تخطّي</button></div>'+
+      (nextA?'<p class="hint" style="margin:0">التالية: '+esc(nextA.name)+'</p>':'<p class="hint" style="margin:0">هاي آخر شقة.</p>');
+  }
+  h+='</section>';
+  w.innerHTML=h;
+  if(!quiet){ var f=w.querySelector('.btn.primary:not([disabled])')||w.querySelector('.sheet'); if(f&&f.focus) f.focus({preventScroll:true}); }
+}
+function qAct(act,t){
+  var q=ui.q; if(!q) return;
+  if(act==='q-only'){ q.only=!!t.checked; paintQueue(); }
+  else if(act==='q-start'){ q.ids=qList(q.ym,q.only).ids; q.i=0; q.opened={}; q.skipped={}; paintQueue(); }
+  else if(act==='q-go'){ var id=t.dataset.id; q.opened[id]=1; delete q.skipped[id]; setTimeout(function(){ qAdvance(id,1); },350); }   /* the link opens first, then the next apartment shows */
+  else if(act==='q-skip'){ var sid=t.dataset.id; if(!q.opened[sid]) q.skipped[sid]=1; qAdvance(sid,1); }   /* one already opened is not "skipped" */
+  else if(act==='q-prev'){ if(q.i>0){ q.i--; paintQueue(); } }
+}
 /* ----- apartments ----- */
 function ccField(a,pre){
   var cur=a?(a.cc||''):'', opts=['970','972']; if(cur&&opts.indexOf(cur)<0) opts.push(cur);
@@ -1631,7 +1885,8 @@ function renderHistory(){
     return '<li class="row"><div><div class="apt-name">'+esc(ymLabel(k))+'</div><div class="sub">'+sub+'</div></div><button class="btn" data-act="open-month" data-ym="'+k+'">فتح</button></li>';
   }).join('');
   main.innerHTML=
-  '<section class="band"><h2 class="h2">السجل</h2><p class="lead">كل الفترات التي أدخلت بياناتها، وما على كل شقة من رصيد.</p></section>'+
+  '<section class="band"><h2 class="h2">السجل</h2><p class="lead">كل الفترات التي أدخلت بياناتها، وما على كل شقة من رصيد.</p>'+
+  (S.dl?'<div class="btns"><button class="btn primary" type="button" data-act="xlsx">حفظ كل الشقق كملف Excel</button></div><p class="hint">الملف فيه ثلاث أوراق: الفترة المعروضة في الكشف مع المجاميع، أرصدة الشقق اليوم، وكل الفترات السابقة لكل شقة. الملف صورة عن البيانات لحظة الحفظ، فاحفظ نسخة جديدة متى بدك.</p>':'')+'</section>'+
   '<section class="band"><h3 class="h3">أرصدة الشقق</h3>'+(keys.length?balHtml+'<p class="hint" style="margin-top:10px">الرصيد يحسب من آخر فترة مكتملة لكل شقة.</p>':'<p class="lead">لا توجد فترات بعد. ابدأ من قسم الكشف.</p>')+'</section>'+
   '<section class="band"><h3 class="h3">الفترات</h3>'+(keys.length?'<ul class="rows">'+mHtml+'</ul>':'<p class="lead">لا توجد فترات بعد.</p>')+'</section>';
 }
@@ -1706,6 +1961,10 @@ function onClick(e){
       break; }
     case 'pdf': exportStatement(id); break;
     case 'pdf-summary': exportSummary(); break;
+    case 'xlsx': exportExcel(); break;
+    case 'q-open': qOpen(); break;
+    case 'q-close': qClose(); break;
+    case 'q-only': case 'q-start': case 'q-go': case 'q-skip': case 'q-prev': qAct(act,t); break;
     case 'open-month': ui.tab='month'; ui.ym=t.dataset.ym; renderAll(); window.scrollTo(0,0); break;
     case 'setup-start': startSetup(); break;
     case 'setup-sample': loadSample(); break;
@@ -1748,7 +2007,7 @@ main.addEventListener('click',onClick);
 main.addEventListener('input',onInput);
 main.addEventListener('change',onChange);
 main.addEventListener('submit',function(e){ if(e.target&&e.target.id==='login-form'){ e.preventDefault(); doLogin(); } });
-document.addEventListener('keydown',function(e){ if(e.key==='Escape'&&ui.open) closeApt(); });
+document.addEventListener('keydown',function(e){ if(e.key==='Escape'&&ui.q) qClose(); else if(e.key==='Escape'&&ui.open) closeApt(); });
 document.getElementById('tabs').addEventListener('click',function(e){
   var t=e.target.closest('[data-tab]'); if(!t) return;
   ui.tab=t.dataset.tab; ui.edit=null; ui.confirm=null; renderAll(); window.scrollTo(0,0);
