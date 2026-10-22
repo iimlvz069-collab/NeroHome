@@ -6,7 +6,7 @@
 <meta name="theme-color" content="#FBF8F3">
 <title>قسمة</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%23F5B700'/%3E%3Cpath d='M56 12 24 56h22l-4 32 34-46H52z' fill='%2314213D'/%3E%3C/svg%3E">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&family=Tajawal:wght@400;500;700&family=IBM+Plex+Mono:wght@500;600&family=Aref+Ruqaa+Ink:wght@700&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&family=Tajawal:wght@400;500;700&family=IBM+Plex+Mono:wght@500;600&display=swap">
 <style>
 :root{
   --paper:#FBF8F3; --surface:#FFFFFF; --ink:#1F2A28; --ink2:#5B6764; --line:#E6E0D4; --field:#D5CEBF; --soft:#F1ECE2;
@@ -56,7 +56,7 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
 .brand .eyebrow{line-height:1.2}
 .bwrap{display:flex;align-items:center;gap:12px;min-width:0}
 .qmark{display:flex;flex-direction:column;align-items:center;margin:26px auto 4px;color:var(--ink)}
-.qm-ar{font-family:"Aref Ruqaa Ink",serif;font-weight:700;font-size:54px;line-height:1.15}
+.qm-ar{width:70px;height:auto;display:block;margin:4px 0 8px}
 .qm-line{width:150px;height:15px;display:block}
 .qm-en{font:700 12.5px/1 var(--f-body);letter-spacing:.2em;color:var(--ink2);direction:ltr;margin-top:6px}
 .btxt{min-width:0}
@@ -559,8 +559,10 @@ function brandOut(){ var o={}; BRAND_KEYS.forEach(function(k){ o[k]=S.b[k]; }); 
 function extend(o,p){ Object.keys(p).forEach(function(k){ o[k]=p[k]; }); return o; }
 function CS(){ return (S&&S.b&&S.b.cur)||'₪'; }
 function CD(){ return (S&&S.b&&S.b.cd===0)?0:2; }
+/* the wordmark is an outline (not text): the lettering font is a colour font and would ignore the page colour */
+var QW_D='M261 -599Q259 -595 253 -592Q207 -584 162 -575Q116 -566 70 -558Q63 -557 58 -562Q54 -568 58 -575L114 -689Q115 -691 118 -692Q121 -694 123 -695Q170 -703 216 -712Q261 -720 306 -729Q313 -731 318 -726Q323 -720 318 -712ZM78 -130Q60 -130 40 -139Q19 -148 5 -164Q-9 -181 -9 -204Q-9 -220 -5 -232Q11 -292 40 -343Q70 -394 103 -437Q108 -444 112 -448Q117 -453 120 -456V-455Q158 -492 193 -492Q206 -492 215 -488Q257 -471 259 -400L277 -142L203 -6Q199 1 190 -1Q182 -3 181 -11L170 -168Q154 -154 130 -142Q107 -130 78 -130ZM156 -290Q156 -308 152 -326Q149 -345 137 -349Q133 -350 131 -351Q129 -352 125 -352Q116 -352 106 -344Q98 -337 91 -331Q84 -325 79 -318Q76 -314 76 -312Q76 -309 79 -304Q89 -288 110 -281Q121 -278 135 -278Q140 -278 145 -278Q150 -279 155 -280Q155 -282 156 -283Q156 -284 156 -285ZM411 -258Q420 -277 434 -297Q448 -317 469 -318Q486 -323 513 -323H524Q553 -323 572 -312Q590 -300 583 -270Q571 -212 559 -190Q548 -170 528 -146Q508 -121 485 -104Q445 -75 394 -56Q343 -36 287 -22L237 -10L199 0Q192 1 188 -3Q184 -7 185 -14L206 -138Q208 -146 216 -148Q260 -153 300 -162Q339 -170 377 -181ZM655 -394Q649 -399 642 -401Q636 -403 629 -403Q616 -403 605 -398Q594 -393 584 -387Q540 -355 504 -308Q469 -260 440 -212Q439 -211 435 -209Q431 -207 429 -207H413Q403 -207 402 -216Q401 -224 406 -236Q410 -247 415 -258Q420 -268 422 -272Q440 -314 464 -354Q487 -395 512 -431Q534 -461 562 -490Q591 -520 625 -536Q635 -541 648 -544Q660 -547 673 -547Q700 -547 727 -532Q751 -517 760 -498Q765 -489 772 -489Q793 -488 810 -500Q827 -511 838 -528Q849 -545 853 -560Q864 -578 872 -582Q880 -586 880 -556Q881 -546 880 -537Q880 -528 878 -519Q926 -534 940 -585Q945 -623 952 -624Q959 -624 969 -589Q963 -539 952 -491Q941 -443 916 -412Q908 -401 896 -393Q883 -385 868 -378Q850 -369 836 -365Q821 -361 810 -361Q803 -361 798 -365L792 -362H793Q755 -340 722 -343Q682 -346 667 -373ZM1222 -987Q1220 -983 1214 -980Q1168 -972 1122 -963Q1077 -954 1031 -946Q1024 -945 1020 -950Q1015 -956 1019 -963L1075 -1077Q1076 -1079 1079 -1080Q1082 -1082 1084 -1083Q1131 -1091 1176 -1100Q1222 -1108 1267 -1117Q1274 -1119 1279 -1114Q1284 -1108 1279 -1100ZM1095 -620Q1071 -620 1055 -632Q1039 -643 1039 -668Q1039 -690 1048 -705Q1065 -736 1080 -766Q1094 -797 1114 -825Q1133 -850 1155 -850Q1164 -850 1170 -846Q1177 -843 1183 -839Q1212 -818 1233 -780Q1254 -742 1254 -695Q1254 -679 1252 -664Q1249 -648 1245 -634Q1235 -595 1220 -562Q1205 -528 1182 -503V-504Q1161 -480 1138 -462Q1115 -444 1091 -431Q1043 -406 896 -374Q889 -373 885 -377Q881 -381 882 -388L904 -512Q904 -519 913 -521Q965 -532 1006 -542Q1048 -553 1080 -563Q1112 -573 1134 -582Q1157 -591 1170 -599L1162 -625Q1160 -632 1158 -636Q1156 -641 1156 -643Q1146 -635 1130 -628Q1114 -620 1095 -620Z', QW_X0=-9, QW_W=1291;
 function qmark(){
-  return '<div class="qmark" role="img" aria-label="قسمة Qisma"><span class="qm-ar" aria-hidden="true">قسمة</span>'+
+  return '<div class="qmark" role="img" aria-label="قسمة Qisma"><svg class="qm-ar" viewBox="-9 -1118 1291 1119" aria-hidden="true"><path d="'+QW_D+'" fill="currentColor"/></svg>'+
     '<svg class="qm-line" viewBox="0 0 320 30" aria-hidden="true"><path d="M6 17C60 8 120 22 206 12" fill="none" stroke="#F5B700" stroke-width="9" stroke-linecap="round"/><path d="M232 14C258 10 290 17 314 9" fill="none" stroke="#F5B700" stroke-width="9" stroke-linecap="round"/></svg>'+
     '<span class="qm-en" aria-hidden="true">Qisma</span></div>';
 }
@@ -1496,7 +1498,6 @@ function loadFonts(){
     document.fonts.load('800 40px "Cairo"','عمارة'),
     document.fonts.load('400 30px "Tajawal"','الكهرباء'),
     document.fonts.load('700 30px "Tajawal"','الكهرباء'),
-    document.fonts.load('700 40px "Aref Ruqaa Ink"','قسمة'),
     document.fonts.load('600 40px "IBM Plex Mono"','0123456789')
   ]).catch(function(){});
 }
@@ -1541,11 +1542,12 @@ function drawDial(x,val,leftX,top,w,h){
   }
 }
 
-var F_Q='"Aref Ruqaa Ink","Tajawal",serif';
-/* the product mark: hand-lettered word, two unequal yellow strokes, Latin name under it, and who made the statement */
+var QWP=null;
+/* the product mark: hand-lettered word (drawn from its outline), two unequal yellow strokes, Latin name under it, and who made the statement */
 function drawQisma(x,L,yb){
-  var fz=40; x.font='700 '+fz+'px '+F_Q; var w=x.measureText('قسمة').width;
-  tx(x,'قسمة',L,yb,{s:fz,w:700,f:F_Q,c:C_INK,a:'left'});
+  var fz=40, k=fz/1000, w=QW_W*k;
+  if(!QWP){ try{ QWP=new Path2D(QW_D); }catch(e){ QWP=null; } }
+  if(QWP){ x.save(); x.translate(L-QW_X0*k,yb); x.scale(k,k); x.fillStyle=C_INK; x.fill(QWP); x.restore(); }
   var uy=yb+12, cut=Math.round(w*0.66);
   x.save(); x.lineCap='round'; x.lineWidth=4.5; x.strokeStyle='#F5B700';
   x.beginPath(); x.moveTo(L+2,uy+1); x.quadraticCurveTo(L+cut*0.5,uy-4,L+cut,uy-1); x.stroke();
