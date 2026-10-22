@@ -449,6 +449,72 @@ body.stage-on{overflow:hidden}
 @media (min-width:700px){.stage{--D:700px}.stg-body,.pw{max-width:460px}}
 @media (prefers-reduced-motion:reduce){.stage *{animation:none!important}.stage{transition:opacity .2s}}
 .bwrap::before{background:var(--box) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Cg transform='translate(20.5 61) scale(.046)'%3E%3Cpath d='M261 -599Q259 -595 253 -592Q207 -584 162 -575Q116 -566 70 -558Q63 -557 58 -562Q54 -568 58 -575L114 -689Q115 -691 118 -692Q121 -694 123 -695Q170 -703 216 -712Q261 -720 306 -729Q313 -731 318 -726Q323 -720 318 -712ZM78 -130Q60 -130 40 -139Q19 -148 5 -164Q-9 -181 -9 -204Q-9 -220 -5 -232Q11 -292 40 -343Q70 -394 103 -437Q108 -444 112 -448Q117 -453 120 -456V-455Q158 -492 193 -492Q206 -492 215 -488Q257 -471 259 -400L277 -142L203 -6Q199 1 190 -1Q182 -3 181 -11L170 -168Q154 -154 130 -142Q107 -130 78 -130ZM156 -290Q156 -308 152 -326Q149 -345 137 -349Q133 -350 131 -351Q129 -352 125 -352Q116 -352 106 -344Q98 -337 91 -331Q84 -325 79 -318Q76 -314 76 -312Q76 -309 79 -304Q89 -288 110 -281Q121 -278 135 -278Q140 -278 145 -278Q150 -279 155 -280Q155 -282 156 -283Q156 -284 156 -285ZM411 -258Q420 -277 434 -297Q448 -317 469 -318Q486 -323 513 -323H524Q553 -323 572 -312Q590 -300 583 -270Q571 -212 559 -190Q548 -170 528 -146Q508 -121 485 -104Q445 -75 394 -56Q343 -36 287 -22L237 -10L199 0Q192 1 188 -3Q184 -7 185 -14L206 -138Q208 -146 216 -148Q260 -153 300 -162Q339 -170 377 -181ZM655 -394Q649 -399 642 -401Q636 -403 629 -403Q616 -403 605 -398Q594 -393 584 -387Q540 -355 504 -308Q469 -260 440 -212Q439 -211 435 -209Q431 -207 429 -207H413Q403 -207 402 -216Q401 -224 406 -236Q410 -247 415 -258Q420 -268 422 -272Q440 -314 464 -354Q487 -395 512 -431Q534 -461 562 -490Q591 -520 625 -536Q635 -541 648 -544Q660 -547 673 -547Q700 -547 727 -532Q751 -517 760 -498Q765 -489 772 -489Q793 -488 810 -500Q827 -511 838 -528Q849 -545 853 -560Q864 -578 872 -582Q880 -586 880 -556Q881 -546 880 -537Q880 -528 878 -519Q926 -534 940 -585Q945 -623 952 -624Q959 -624 969 -589Q963 -539 952 -491Q941 -443 916 -412Q908 -401 896 -393Q883 -385 868 -378Q850 -369 836 -365Q821 -361 810 -361Q803 -361 798 -365L792 -362H793Q755 -340 722 -343Q682 -346 667 -373ZM1222 -987Q1220 -983 1214 -980Q1168 -972 1122 -963Q1077 -954 1031 -946Q1024 -945 1020 -950Q1015 -956 1019 -963L1075 -1077Q1076 -1079 1079 -1080Q1082 -1082 1084 -1083Q1131 -1091 1176 -1100Q1222 -1108 1267 -1117Q1274 -1119 1279 -1114Q1284 -1108 1279 -1100ZM1095 -620Q1071 -620 1055 -632Q1039 -643 1039 -668Q1039 -690 1048 -705Q1065 -736 1080 -766Q1094 -797 1114 -825Q1133 -850 1155 -850Q1164 -850 1170 -846Q1177 -843 1183 -839Q1212 -818 1233 -780Q1254 -742 1254 -695Q1254 -679 1252 -664Q1249 -648 1245 -634Q1235 -595 1220 -562Q1205 -528 1182 -503V-504Q1161 -480 1138 -462Q1115 -444 1091 -431Q1043 -406 896 -374Q889 -373 885 -377Q881 -381 882 -388L904 -512Q904 -519 913 -521Q965 -532 1006 -542Q1048 -553 1080 -563Q1112 -573 1134 -582Q1157 -591 1170 -599L1162 -625Q1160 -632 1158 -636Q1156 -641 1156 -643Q1146 -635 1130 -628Q1114 -620 1095 -620Z' fill='white'/%3E%3C/g%3E%3Cpath d='M23 76C37 71 50 79 62 74M68 75 78 73' fill='none' stroke='%23F5B700' stroke-width='6' stroke-linecap='round'/%3E%3C/svg%3E") center/100% no-repeat}
+/* ===== v5: the stage continues inside the app ===== */
+body{background:var(--paper)}
+body::before{background:#060A14}
+#app{position:relative;z-index:1}
+#atmos{--arcT:rgba(245,183,0,0);--arcA:#F5B700;--arcB:#FFF1B8;--blu:#4F78FF;--bluT:rgba(79,120,255,0);--AD:min(120vw,640px);
+  position:absolute;top:0;left:0;right:0;height:var(--ah,230px);z-index:0;overflow:hidden;pointer-events:none;
+  background:radial-gradient(110% 90% at 50% 125%,rgba(46,66,160,.5),transparent 62%),radial-gradient(70% 55% at 106% -8%,rgba(30,48,110,.55),transparent 70%),linear-gradient(#060A14,#0A1020 72%,#0B1328);
+  border-radius:0 0 50% 50% / 0 0 34px 34px;transition:height .4s var(--ease)}
+#atmos .at-ring{position:absolute;left:50%;bottom:34px;width:var(--AD);height:var(--AD);margin-left:calc(var(--AD)/-2);opacity:.9}
+#atmos .at-ring .rg{position:absolute;inset:0}
+#atmos .at-ring .gl{position:absolute;inset:0;filter:blur(11px)}
+#atmos .at-ring .cr{position:absolute;inset:0;filter:drop-shadow(0 0 4px var(--arcA)) drop-shadow(0 0 12px var(--arcA))}
+#atmos .at-ring i{position:absolute;inset:0;border-radius:50%;background:conic-gradient(from 55deg,var(--arcT) 0deg,var(--arcT) 18deg,var(--arcA) 110deg,var(--arcB) 125deg,var(--arcA) 140deg,var(--arcT) 232deg,var(--arcT) 360deg)}
+#atmos .at-ring .cr i{-webkit-mask:radial-gradient(farthest-side,transparent calc(100% - 3px),#000 calc(100% - 2px));mask:radial-gradient(farthest-side,transparent calc(100% - 3px),#000 calc(100% - 2px))}
+#atmos .at-ring .gl i{-webkit-mask:radial-gradient(farthest-side,transparent calc(100% - 30px),#000 calc(100% - 3px));mask:radial-gradient(farthest-side,transparent calc(100% - 30px),#000 calc(100% - 3px))}
+#atmos .at-glow{position:absolute;left:50%;bottom:-30%;width:150%;height:90%;transform:translateX(-50%);background:radial-gradient(closest-side,rgba(255,176,32,.26),rgba(245,183,0,.07) 55%,transparent);mix-blend-mode:screen}
+/* header sits on the stage */
+.top{background:transparent}
+.top.scrolled{background:rgba(6,10,20,.88);box-shadow:0 1px 0 rgba(255,255,255,.07)}
+@supports (backdrop-filter:blur(8px)){.top.scrolled{backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px)}}
+.top .eyebrow{color:rgba(255,255,255,.6)}
+.top h1,.top #bname{color:#fff}
+.top .badge{background:rgba(255,255,255,.09);color:rgba(255,255,255,.82)}
+.top .badge[data-s="saving"]{color:#FFD43D}.top .badge[data-s="offline"]{color:#FF9F96}
+.blogo{border-color:rgba(255,255,255,.2)}
+/* month: title + amount on the stage */
+.month-nav .eyebrow{color:rgba(255,255,255,.6)}
+.month-title .h2{color:#fff}
+.nbtn{background:rgba(255,255,255,.1);color:#fff}
+.nbtn:hover{background:rgba(255,255,255,.16)}
+main>.status[data-k]{background:rgba(245,183,0,.14);color:#FFE7A0}
+main>.status[data-k] .btn{background:transparent;border-color:rgba(255,231,160,.45);color:#FFE7A0}
+.hero{background:transparent;color:#fff;border-radius:0;padding:10px 6px 8px;overflow:visible}
+.hero::before{display:none}
+.hero .lbl{color:rgba(255,255,255,.62)}
+.hero .drum{filter:drop-shadow(0 0 16px rgba(245,183,0,.42))}
+.hero-sub{color:rgba(255,255,255,.72)}
+.hero-sub .num{color:#fff}
+.bento{margin-top:-2px}
+/* other tabs: big title on the stage */
+.st-head{padding:20px 6px 30px;position:relative}
+.st-head .h2{font:700 32px/1.15 var(--f-display);color:#fff;letter-spacing:-.012em}
+.st-head .hint{margin:7px 0 0;color:rgba(255,255,255,.64);font-size:13.5px}
+.st-head+.band{margin-top:4px}
+/* statement-slip sections: a notch and a tear line under the heading */
+.band:has(>.h3:first-child){
+  -webkit-mask:radial-gradient(circle 8px at 0 56px,#0000 97%,#000) left/51% 100% no-repeat,radial-gradient(circle 8px at 100% 56px,#0000 97%,#000) right/51% 100% no-repeat;
+          mask:radial-gradient(circle 8px at 0 56px,#0000 97%,#000) left/51% 100% no-repeat,radial-gradient(circle 8px at 100% 56px,#0000 97%,#000) right/51% 100% no-repeat}
+.band>.h3:first-child{margin:0 -18px 16px;padding:0 18px 12px;border-bottom:1.5px dashed var(--line)}
+.band{border-radius:24px}
+/* each floor is one sheet with hairlines instead of a stack of identical cards */
+.alist{gap:0;background:var(--surface);border-radius:24px;overflow:hidden}
+.alist>.apt+.apt{border-top:1px solid var(--line)}
+.arow{background:transparent;border-radius:0}
+.arow:hover{box-shadow:none;background:var(--soft)}
+.arow:active{transform:none;background:var(--soft)}
+/* ledger-style fields inside sections */
+.band .in{background:transparent;border:0;border-bottom:1.5px solid var(--field);border-radius:0;padding:9px 2px;min-height:46px}
+.band .in:focus{background:transparent;border-bottom-color:var(--signal);box-shadow:0 9px 12px -10px rgba(245,183,0,.75)}
+.band .in[dir="ltr"]{text-align:left}
+/* dark tab bar */
+html body .bnav{background:rgba(8,12,24,.94);border-color:rgba(255,255,255,.09);box-shadow:0 18px 40px -16px rgba(0,0,0,.75)}
+@supports (backdrop-filter:blur(8px)){html body .bnav{background:rgba(8,12,24,.84);backdrop-filter:blur(16px) saturate(1.3);-webkit-backdrop-filter:blur(16px) saturate(1.3)}}
+html body .tab{color:rgba(255,255,255,.58)}
+html body .tab[aria-selected="true"]{color:#fff}
+@media (prefers-reduced-motion:reduce){#atmos{transition:none}}
 </style>
 </head>
 <body>
@@ -1261,9 +1327,7 @@ function stgTheme(c){
 }
 function stgWord(cls){ return '<svg class="'+cls+'" viewBox="-9 -1118 1291 1119" aria-hidden="true"><path d="'+QW_D+'" fill="currentColor"/></svg>'; }
 function stgLockup(){
-  var lg=(QD.logo&&/^data:image\//.test(QD.logo))?QD.logo:'', ed=!!(QD.name||lg);
-  var mark=ed?'<div class="ed">'+(lg?'<img class="edlogo" alt="" src="'+esc(lg)+'">':'')+(QD.name?'<div class="edname">'+esc(QD.name)+'</div>':'')+'</div>'
-             :'<div class="wmh" role="img" aria-label="قسمة">'+stgWord('wm')+'</div>';
+  var mark='<div class="wmh" role="img" aria-label="قسمة">'+stgWord('wm')+'</div>';
   var rings='<div class="halo"></div><div class="rings" aria-hidden="true">'+
     '<div class="rg rg2"><div class="gl"><i></i></div><div class="cr"><i></i></div></div>'+
     '<div class="rg rg1"><div class="gl"><i></i></div><div class="cr"><i></i></div></div></div>';
@@ -1327,7 +1391,7 @@ function stgShow(view){
   if(!el){
     el=document.createElement('div'); el.id='stage'; el.className='stage'+(stg.ign?'':' ign');
     el.setAttribute('role','region'); el.setAttribute('aria-label','قسمة');
-    el.innerHTML='<div class="stg-bg"></div><div class="stg-in">'+stgLockup()+'<div class="stg-body" id="stg-body"></div>'+((QD.name||QD.logo)?'<div class="pw">مدعوم من'+stgWord('wm sm')+'</div>':'')+'</div>';
+    el.innerHTML='<div class="stg-bg"></div><div class="stg-in">'+stgLockup()+'<div class="stg-body" id="stg-body"></div>'+'</div>';
     document.body.appendChild(el);
     document.body.classList.add('stage-on');
     el.addEventListener('click',function(e){
@@ -1508,8 +1572,23 @@ function renderHeader(){
   paintBadge();
   placeTabInd();
 }
+/* ----- v5: the stage continues inside the app ----- */
+function atmosMake(){
+  if(document.getElementById('atmos')) return;
+  var a=document.createElement('div'); a.id='atmos'; a.setAttribute('aria-hidden','true');
+  a.innerHTML='<div class="at-glow"></div><div class="at-ring"><div class="rg"><div class="gl"><i></i></div><div class="cr"><i></i></div></div></div>';
+  document.body.insertBefore(a,document.body.firstChild);
+}
+function atmosFit(){
+  var a=document.getElementById('atmos'); if(!a) return;
+  var anc=main.querySelector('.st-head')||main.querySelector('.hero')||document.querySelector('.top-in');
+  if(!anc||document.body.classList.contains('stage-on')&&!S.ready) return;
+  var r=anc.getBoundingClientRect(), y=r.bottom+(window.pageYOffset||0)+(anc.classList.contains('hero')?26:10);
+  a.style.setProperty('--ah',Math.max(150,Math.round(y))+'px');
+}
 function renderAll(){
   var from=lastTabR; renderAll0(); if(from&&from!==ui.tab) animateTab(from,ui.tab); lastTabR=ui.tab;
+  atmosMake(); atmosFit(); setTimeout(atmosFit,60); setTimeout(atmosFit,500);
 }
 function renderAll0(){
   if(isMeter()&&ui.tab==='apts') ui.tab='month';
@@ -1528,10 +1607,10 @@ function renderAll0(){
 /* ----- roles ----- */
 var METER_NO={'apt-add':1,'apt-edit':1,'apt-save':1,'apt-rm':1,'apt-rm-yes':1,'apt-restore':1,'renum':1,'renum-yes':1,'clear':1,'clear-yes':1,'restore':1,'restore-yes':1,'sample-clear':1,'setup-start':1,'setup-sample':1,'adopt-local':1,'phone-missing':1,'phone-edit':1,'acc-add':1,'acc-rm':1,'backup':1,'brand-col':1,'logo-rm':1};
 function renderWaiting(){
-  main.innerHTML='<section class="band"><h2 class="h2">لا توجد شقق بعد</h2></section>';
+  main.innerHTML='<header class="st-head"><h2 class="h2">لا توجد شقق بعد</h2></header>';
 }
 function renderMeterSettings(){
-  main.innerHTML='<section class="band"><h2 class="h2">الإعدادات</h2></section>'+
+  main.innerHTML='<header class="st-head"><h2 class="h2">الإعدادات</h2></header>'+
   '<section class="band"><h3 class="h3">الحساب</h3><p class="hint" style="margin:0 0 8px">مسجّل الدخول باسم <span class="num">'+esc(fb.user&&fb.user.email||'')+'</span></p>'+
   '<p class="hint" style="margin:0 0 12px">الصلاحية: قراءات ومتأخرات ومدفوع</p>'+
   '<div class="btns" style="margin-top:0"><button class="btn" data-act="signout">تسجيل الخروج</button></div></section>';
@@ -1568,7 +1647,7 @@ function accRemove(em){
 
 /* ----- setup ----- */
 function renderSetup(){
-  main.innerHTML='<section class="band"><h2 class="h2">ابدأ بعمارتك</h2>'+
+  main.innerHTML='<header class="st-head"><h2 class="h2">ابدأ بعمارتك</h2></header><section class="band">'+
     '<div class="two"><div class="field"><label for="s-name">اسم العمارة</label><input class="in" id="s-name" autocomplete="off" placeholder="مثال: عمارة الأمل" value="'+esc(S.b.name||QD.name||'')+'"></div>'+
   '<div class="field"><label for="s-count">عدد الشقق</label><input class="in" id="s-count" inputmode="numeric" dir="ltr" autocomplete="off" value="12"></div>'+
   '<div class="field"><label for="s-ground">عدد شقق الطابق الأرضي</label><input class="in" id="s-ground" inputmode="numeric" dir="ltr" autocomplete="off" value="2"></div>'+
@@ -1723,7 +1802,7 @@ function placeTabInd(){
   ind.style.transform='translate('+(r.left-tr.left)+'px,'+(r.top-tr.top)+'px)';
   if(!ind.dataset.ready) requestAnimationFrame(function(){ ind.dataset.ready='1'; });
 }
-window.__qTab=placeTabInd;
+window.__qTab=placeTabInd; window.__atmos=function(){ atmosFit(); };
 function animateTab(from,to){
   if(reduceMotion()||!main.animate) return;
   var d=TAB_ORDER.indexOf(to)>TAB_ORDER.indexOf(from)?-1:1;
@@ -2562,7 +2641,7 @@ function renderApts(){
     '<div class="btns" style="margin:0"><button class="btn" data-act="apt-edit" data-id="'+esc(a.id)+'">تعديل</button><button class="btn quiet" data-act="apt-rm" data-id="'+esc(a.id)+'">إزالة</button></div></div></li>';
   }
   main.innerHTML=
-  '<section class="band"><h2 class="h2">الشقق</h2><p class="hint" style="margin:0 0 4px">'+esc(ymLabel(ym))+'</p>'+
+  '<header class="st-head"><h2 class="h2">الشقق</h2><p class="hint">'+esc(ymLabel(ym))+'</p></header><section class="band">'+
   (groupByFloor(act).map(function(g){
     return '<div class="floor"><div class="floor-bar"><span>'+esc(floorLabel(g.floor))+'</span><span class="fl-sub">'+aptCountLabel(g.apts.length)+'</span></div><ul class="apts">'+g.apts.map(item).join('')+'</ul></div>';
   }).join('')||'<p class="lead">لا توجد شقق في هذه الفترة.</p>')+'</section>'+
@@ -2648,7 +2727,7 @@ function renderHistory(){
     return '<li class="row"><div><div class="apt-name">'+esc(ymLabel(k))+'</div><div class="sub">'+sub+'</div></div><button class="btn" data-act="open-month" data-ym="'+k+'">فتح</button></li>';
   }).join('');
   main.innerHTML=
-  '<section class="band"><h2 class="h2">السجل</h2>'+
+  '<header class="st-head"><h2 class="h2">السجل</h2></header><section class="band">'+
   (S.dl?'<div class="btns"><button class="btn primary" type="button" data-act="xlsx">حفظ كل الشقق كملف Excel</button></div>':'')+'</section>'+
   '<section class="band"><h3 class="h3">أرصدة الشقق</h3>'+(keys.length?balHtml+'':'<p class="lead">لا توجد فترات بعد.</p>')+'</section>'+
   '<section class="band"><h3 class="h3">الفترات</h3>'+(keys.length?'<ul class="rows">'+mHtml+'</ul>':'<p class="lead">لا توجد فترات بعد.</p>')+'</section>';
@@ -2660,7 +2739,7 @@ function renderSettings(){
   if(isMeter()) return renderMeterSettings();
   var rn=ui.restore?ui.restore.b.apartments.length:0, rm=ui.restore?Object.keys(ui.restore.months).length:0;
   main.innerHTML=
-  '<section class="band"><h2 class="h2">الإعدادات</h2></section>'+
+  '<header class="st-head"><h2 class="h2">الإعدادات</h2></header>'+
   (cloud?'<section class="band"><h3 class="h3">الحساب والمزامنة</h3><p class="hint" style="margin:0 0 12px">مسجّل الدخول باسم <span class="num">'+esc(fb.user&&fb.user.email||'')+'</span></p><div class="btns" style="margin-top:0"><button class="btn" data-act="signout">تسجيل الخروج</button></div></section>':'')+
   (cloud?accessBand():'')+
   '<section class="band"><h3 class="h3">العمارة</h3><div class="two">'+
@@ -2797,7 +2876,7 @@ load();
 })();
 </script>
 <script>
-(function(){ var tp=document.querySelector('.top'); function s(){ if(tp) tp.classList.toggle('scrolled',(window.scrollY||0)>6); } window.addEventListener('scroll',s,{passive:true}); window.addEventListener('resize',function(){ if(window.__qTab) window.__qTab(); }); if(document.fonts&&document.fonts.ready) document.fonts.ready.then(function(){ if(window.__qTab) window.__qTab(); }); s(); })();
+(function(){ var tp=document.querySelector('.top'); function s(){ if(tp) tp.classList.toggle('scrolled',(window.scrollY||0)>6); } window.addEventListener('scroll',s,{passive:true}); window.addEventListener('resize',function(){ if(window.__qTab) window.__qTab(); if(window.__atmos) window.__atmos(); }); if(document.fonts&&document.fonts.ready) document.fonts.ready.then(function(){ if(window.__qTab) window.__qTab(); if(window.__atmos) window.__atmos(); }); s(); })();
 </script>
 </body>
 </html>
