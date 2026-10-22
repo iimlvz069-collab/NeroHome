@@ -241,7 +241,7 @@ var firebaseConfig = {
    تُستخدم إلى أن تُغيَّر من الإعدادات داخل التطبيق. اللون بصيغة #RRGGBB، والشعار صورة مضمّنة. */
 var qismaDefaults = {
   /*BRAND-START*/
-  name: "نيرو هوم | NERO HOME",
+  name: "نيرو هوم",
   cur: "₪",
   cd: 2,
   col: "#323E4F",
@@ -1126,7 +1126,7 @@ function brandBand(){
   (QD.curLock?'':'<div class="field"><label for="st-cur">العملة</label><select class="in" id="st-cur" data-st="cur">'+opts+'</select></div>')+
   '<div class="field"><label for="st-pm">نوع الفترة</label><select class="in" id="st-pm" data-st="pm"><option value="h"'+(b.pm==='h'?' selected':'')+'>نصف شهر</option><option value="m"'+(b.pm==='m'?' selected':'')+'>شهر كامل</option></select></div>'+
   '<div class="field"><label for="st-contact">للتواصل (يظهر في الكشف)</label><input class="in" id="st-contact" data-st="contact" value="'+esc(b.contact||'')+'" maxlength="80" autocomplete="off"></div></div>'+
-  '<label class="q-chk" style="margin-top:10px"><input type="checkbox" data-st="pb"'+(b.pb?' checked':'')+'>إظهار «قسمة» أسفل الكشوف</label></section>';
+  '</section>';
 }
 
 /* ----- header / tabs ----- */
@@ -1313,7 +1313,7 @@ function renderMonth(){
   search+chips+
   (v.apts.length?monthFloors(v,rec)+'<p class="lead" id="f-none" hidden>لا توجد شقة بهذا الرقم أو الاسم.</p>':'<p class="lead">لا توجد شقق في هذه الفترة.</p>')+'</section>'+
   '<section class="band"><h3 class="h3">ملخص الفترة للجميع</h3>'+
-  '<div class="btns">'+(S.dl?'<button class="btn" type="button" data-act="pdf-summary">ملخص PDF لكل الشقق</button>':'')+(S.dl?'<button class="btn" type="button" data-act="xlsx">ملف Excel لكل الشقق</button>':'')+'<button class="btn primary" type="button" data-act="q-open">إرسال الكشوف واحدة واحدة</button><a class="btn" id="wa-group" target="_blank" rel="noopener noreferrer">رسالة واتساب للمجموعة</a></div></section>';
+  '<div class="btns">'+(S.dl?'<button class="btn" type="button" data-act="pdf-all">تنزيل كشوف كل الشقق (PDF)</button>':'')+(S.dl?'<button class="btn" type="button" data-act="xlsx">ملف Excel لكل الشقق</button>':'')+'<button class="btn primary" type="button" data-act="q-open">إرسال الكشوف واحدة واحدة</button><a class="btn" id="wa-group" target="_blank" rel="noopener noreferrer">رسالة واتساب للمجموعة</a></div></section>';
   paintMonth();
   applySearch();
 }
@@ -1433,7 +1433,7 @@ function paintMonth(){
   var g=document.getElementById('wa-group');
   if(res.ok){ g.href=waLink('',S.b.cc,summaryMessage(S.b.name,ym,v,S.months)); g.removeAttribute('aria-disabled'); }
   else { g.removeAttribute('href'); g.setAttribute('aria-disabled','true'); }
-  var sb=main.querySelector('[data-act="pdf-summary"]'); if(sb) sb.disabled=!res.ok;
+  var sb=main.querySelector('[data-act="pdf-all"]'); if(sb) sb.disabled=!(res.readyN>0);
   if(ui.q) paintQueue(true);
 }
 function ensureMonth(ym){
@@ -1619,7 +1619,7 @@ function drawStatement(d){
     tx(x,'تاريخ الإصدار',cx0,PH-42,{s:24,c:C_MUTE});
     tx(x,d.issued,cx0-lw-14,PH-42,{s:24,c:C_MUTE,d:'ltr'});
   }
-  if(d.pb) tx(x,'أُعدّ عبر قسمة',L,PH-42,{s:24,c:C_MUTE,a:'left'});
+  tx(x,'أُعدّ عبر قسمة  ·  Qisma',L,PH-42,{s:24,c:C_MUTE,a:'left'});
   return [p.c];
 }
 
@@ -1735,7 +1735,7 @@ function saveFile(name,data,okMsg){
   });
 }
 function safeName(s){ return String(s||'').replace(/[\\\/:*?"<>|]+/g,'-').trim(); }
-function setBusy(on){ ui.busy=on; var b=main.querySelectorAll('[data-act="pdf"],[data-act="pdf-summary"]'); for(var i=0;i<b.length;i++) b[i].disabled=on||b[i].disabled; if(!on) paintMonth(); }
+function setBusy(on){ ui.busy=on; var b=main.querySelectorAll('[data-act="pdf"],[data-act="pdf-all"]'); for(var i=0;i<b.length;i++) b[i].disabled=on||b[i].disabled; if(!on) paintMonth(); }
 
 function exportStatement(id){
   if(ui.busy) return;
@@ -1765,6 +1765,42 @@ function exportSummary(){
   loadAssets().then(function(){ return canvasesToPdf(drawSummary(d)); }).then(function(blob){
     return saveFile('ملخص كهرباء - '+ym+'.pdf',blob,'تم حفظ الملخص. أرفقه في واتساب.');
   }).catch(function(e){ console.warn(e); toast('تعذر تجهيز الملف.'); }).then(function(){ setBusy(false); });
+}
+
+function blobBytes(b){
+  if(b.arrayBuffer) return b.arrayBuffer().then(function(a){ return new Uint8Array(a); });
+  return new Promise(function(ok,no){ var r=new FileReader(); r.onload=function(){ ok(new Uint8Array(r.result)); }; r.onerror=no; r.readAsArrayBuffer(b); });
+}
+/* every ready apartment's statement, one PDF each, delivered together in a single .zip */
+function exportAll(){
+  if(ui.busy) return;
+  var ym=ui.ym, v=monthView(S.b,S.months,ym), jobs=[], skipped=0, byId={};
+  v.res.rows.forEach(function(r){ byId[r.id]=r; });
+  groupByFloor(v.apts).forEach(function(g){ g.apts.forEach(function(a){
+    var r=byId[a.id];
+    if(!r||r.shareC===null||r.shareC===undefined){ skipped++; return; }
+    jobs.push({apt:a,row:r});
+  }); });
+  if(!jobs.length){ toast('لا توجد شقة جاهزة بعد. أكمل قراءة شقة واحدة على الأقل.'); return; }
+  var files=[], used={}, issued=new Date().toLocaleDateString('en-CA'), chain=loadAssets();
+  setBusy(true);
+  jobs.forEach(function(j,i){
+    chain=chain.then(function(){
+      toast('جارٍ تجهيز الكشوف… '+(i+1)+' من '+jobs.length);
+      var d={building:bldName(),contact:S.b.contact,pb:S.b.pb,monthLabel:ymLabel(ym),rangeLabel:ymRange(ym),apt:j.apt,row:j.row,price:v.res.price,
+        arrC:v.arr[j.apt.id],paidC:paidCents(S.months[ym],j.apt.id),issued:issued};
+      return canvasesToPdf(drawStatement(d));
+    }).then(blobBytes).then(function(bytes){
+      var base='كشف كهرباء - '+safeName(j.apt.name)+' - '+ym, nm=base+'.pdf', n=2;
+      while(used[nm]) nm=base+' ('+(n++)+').pdf';
+      used[nm]=1; files.push({name:nm,data:bytes});
+    });
+  });
+  chain.then(function(){
+    var z=new Blob([zipStore(files)],{type:'application/zip'});
+    return saveFile('كشوف كهرباء - '+safeName(bldName())+' - '+ym+'.zip',z,
+      'تم حفظ '+files.length+' كشف في ملف واحد'+(skipped?' (و'+skipped+' شقة لم تكتمل قراءتها لم تُضمَّن)':'')+'.');
+  }).catch(function(e){ console.warn(e); toast('تعذر تجهيز الملفات.'); }).then(function(){ setBusy(false); });
 }
 
 /* ----- Excel export (a real .xlsx written by hand: no libraries, works offline) ----- */
@@ -2226,7 +2262,7 @@ function onClick(e){
       if(gw.scrollIntoView) gw.scrollIntoView({behavior:'smooth',block:'start'});
       break; }
     case 'pdf': exportStatement(id); break;
-    case 'pdf-summary': exportSummary(); break;
+    case 'pdf-all': exportAll(); break;
     case 'xlsx': exportExcel(); break;
     case 'q-open': qOpen(); break;
     case 'q-close': qClose(); break;
