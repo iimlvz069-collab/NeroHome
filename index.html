@@ -5,8 +5,8 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#FBF8F3">
 <title>قسمة</title>
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='24' fill='%230F766E'/%3E%3Cpath d='M56 12 24 56h22l-4 32 34-46H52z' fill='%23fff'/%3E%3C/svg%3E">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&family=Tajawal:wght@400;500;700&family=IBM+Plex+Mono:wght@500;600&display=swap">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%23F5B700'/%3E%3Cpath d='M56 12 24 56h22l-4 32 34-46H52z' fill='%2314213D'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&family=Tajawal:wght@400;500;700&family=IBM+Plex+Mono:wght@500;600&family=Aref+Ruqaa+Ink:wght@700&display=swap">
 <style>
 :root{
   --paper:#FBF8F3; --surface:#FFFFFF; --ink:#1F2A28; --ink2:#5B6764; --line:#E6E0D4; --field:#D5CEBF; --soft:#F1ECE2;
@@ -55,6 +55,10 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
 .brand{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 0 8px}
 .brand .eyebrow{line-height:1.2}
 .bwrap{display:flex;align-items:center;gap:12px;min-width:0}
+.qmark{display:flex;flex-direction:column;align-items:center;margin:26px auto 4px;color:var(--ink)}
+.qm-ar{font-family:"Aref Ruqaa Ink",serif;font-weight:700;font-size:54px;line-height:1.15}
+.qm-line{width:150px;height:15px;display:block}
+.qm-en{font:700 12.5px/1 var(--f-body);letter-spacing:.2em;color:var(--ink2);direction:ltr;margin-top:6px}
 .btxt{min-width:0}
 .blogo{width:46px;height:46px;flex:none;border-radius:12px;object-fit:contain;background:#fff;border:1px solid var(--line);padding:2px}
 .swatches{display:flex;flex-wrap:wrap;gap:12px;padding:4px 2px}
@@ -555,6 +559,11 @@ function brandOut(){ var o={}; BRAND_KEYS.forEach(function(k){ o[k]=S.b[k]; }); 
 function extend(o,p){ Object.keys(p).forEach(function(k){ o[k]=p[k]; }); return o; }
 function CS(){ return (S&&S.b&&S.b.cur)||'₪'; }
 function CD(){ return (S&&S.b&&S.b.cd===0)?0:2; }
+function qmark(){
+  return '<div class="qmark" role="img" aria-label="قسمة Qisma"><span class="qm-ar" aria-hidden="true">قسمة</span>'+
+    '<svg class="qm-line" viewBox="0 0 320 30" aria-hidden="true"><path d="M6 17C60 8 120 22 206 12" fill="none" stroke="#F5B700" stroke-width="9" stroke-linecap="round"/><path d="M232 14C258 10 290 17 314 9" fill="none" stroke="#F5B700" stroke-width="9" stroke-linecap="round"/></svg>'+
+    '<span class="qm-en" aria-hidden="true">Qisma</span></div>';
+}
 function bldName(){ return (S&&S.b&&S.b.name)||QD.name||'عمارتي'; }
 
 var FB=(typeof firebaseConfig!=='undefined'&&firebaseConfig&&firebaseConfig.apiKey&&firebaseConfig.projectId)?firebaseConfig:null;
@@ -1005,7 +1014,7 @@ function renderLogin(){
   '<div class="field"><label for="lg-pass">كلمة المرور</label><input class="in" id="lg-pass" name="password" type="password" dir="ltr" autocomplete="current-password"></div>'+
   '<p class="issue" id="lg-err" role="alert" hidden></p>'+
   '<div class="btns" style="margin-top:2px"><button class="btn primary" type="submit" id="lg-go">دخول</button></div></form></section>'+
-  '<p class="hint" style="text-align:center;margin-top:18px">قسمة</p>';
+  qmark();
 }
 function renderStage(){
   var st=S.stage;
@@ -1200,7 +1209,7 @@ function renderSetup(){
   '<div class="field"><label for="s-per">عدد الشقق في كل طابق بعد الأرضي</label><input class="in" id="s-per" inputmode="numeric" dir="ltr" autocomplete="off" value="6"></div>'+
   (QD.curLock?'':'<div class="field"><label for="s-cur">العملة</label><select class="in" id="s-cur">'+CURRENCIES.map(function(c){ return '<option value="'+esc(c[0])+'"'+(c[0]===S.b.cur?' selected':'')+'>'+esc(c[1]+' ('+c[0]+')')+'</option>'; }).join('')+'</select></div>')+
   '<div class="field"><label for="s-pm">نوع الفترة</label><select class="in" id="s-pm"><option value="h"'+(S.b.pm==='h'?' selected':'')+'>نصف شهر</option><option value="m"'+(S.b.pm==='m'?' selected':'')+'>شهر كامل</option></select></div></div>'+
-  '<div class="btns"><button class="btn primary" data-act="setup-start">ابدأ</button><button class="btn" data-act="setup-sample">مثال جاهز للتجربة</button><button class="btn quiet" data-act="restore">لدي نسخة احتياطية</button></div>'+adoptHint()+'</section>';
+  '<div class="btns"><button class="btn primary" data-act="setup-start">ابدأ</button><button class="btn" data-act="setup-sample">مثال جاهز للتجربة</button><button class="btn quiet" data-act="restore">لدي نسخة احتياطية</button></div>'+adoptHint()+'</section>'+qmark();
 }
 function adoptHint(){
   var o=isCloud()?localSnapshot():null; if(!o) return '';
@@ -1487,6 +1496,7 @@ function loadFonts(){
     document.fonts.load('800 40px "Cairo"','عمارة'),
     document.fonts.load('400 30px "Tajawal"','الكهرباء'),
     document.fonts.load('700 30px "Tajawal"','الكهرباء'),
+    document.fonts.load('700 40px "Aref Ruqaa Ink"','قسمة'),
     document.fonts.load('600 40px "IBM Plex Mono"','0123456789')
   ]).catch(function(){});
 }
@@ -1531,6 +1541,19 @@ function drawDial(x,val,leftX,top,w,h){
   }
 }
 
+var F_Q='"Aref Ruqaa Ink","Tajawal",serif';
+/* the product mark: hand-lettered word, two unequal yellow strokes, Latin name under it, and who made the statement */
+function drawQisma(x,L,yb){
+  var fz=40; x.font='700 '+fz+'px '+F_Q; var w=x.measureText('قسمة').width;
+  tx(x,'قسمة',L,yb,{s:fz,w:700,f:F_Q,c:C_INK,a:'left'});
+  var uy=yb+12, cut=Math.round(w*0.66);
+  x.save(); x.lineCap='round'; x.lineWidth=4.5; x.strokeStyle='#F5B700';
+  x.beginPath(); x.moveTo(L+2,uy+1); x.quadraticCurveTo(L+cut*0.5,uy-4,L+cut,uy-1); x.stroke();
+  x.beginPath(); x.moveTo(L+cut+9,uy-1); x.quadraticCurveTo(L+w*0.86,uy-3,L+w-2,uy-5); x.stroke();
+  x.restore();
+  tx(x,'Qisma',L+w/2,uy+24,{s:15,w:700,c:C_MUTE,a:'center',d:'ltr'});
+  tx(x,'أُعدّ عبر',L+w+18,PH-42,{s:24,c:C_MUTE,a:'left'});
+}
 function drawLogo(x,px,py,maxW,maxH){
   if(!brandImg||!brandImg.width) return null;
   var k=Math.min(maxW/brandImg.width,maxH/brandImg.height), w=brandImg.width*k, h=brandImg.height*k;
@@ -1619,7 +1642,7 @@ function drawStatement(d){
     tx(x,'تاريخ الإصدار',cx0,PH-42,{s:24,c:C_MUTE});
     tx(x,d.issued,cx0-lw-14,PH-42,{s:24,c:C_MUTE,d:'ltr'});
   }
-  tx(x,'أُعدّ عبر قسمة  ·  Qisma',L,PH-42,{s:24,c:C_MUTE,a:'left'});
+  drawQisma(x,L,PH-52);
   return [p.c];
 }
 
